@@ -1,8 +1,6 @@
 {
-  "id": "sysu-thesis",
-  "name": "中山大学学位论文",
-  "version": "0.1.0",
+  "id": "sysu",
+  "name": "中山大学",
   "extends": "gb-t-7714-2015-numeric",
-  "status": "draft",
-  "source": "待按中山大学研究生学位论文写作指南核对后再标为 verified"
+  "group": "university"
 }

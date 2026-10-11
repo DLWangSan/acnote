@@ -6,82 +6,110 @@ public static class SampleLibrary
 {
     public static void Seed(LibraryStore store)
     {
-        store.Save(Journal(
-            "sample-zh-missing",
-            ["张三", "李四", "王五", "赵六"],
-            "城市绿地与夏季热环境（示例）",
-            "地理学报",
-            "2020",
-            "",
-            "4",
-            ""));
-        store.Save(Journal(
-            "sample-zh-complete",
-            ["李明", "周倩", "孙浩"],
-            "滨海湿地碳通量观测（示例）",
-            "生态学报",
-            "2019",
-            "39",
-            "6",
-            "1801-1810"));
         store.Save(new ReferenceItem
         {
-            Id = "sample-en",
+            Id = "yuan-1966",
             Type = "article-journal",
-            Title = "Street trees and summer heat",
-            ContainerTitle = "Sample Journal of Cities",
-            Year = "2022",
-            Volume = "8",
+            Title = "水稻的雄性不孕性",
+            ContainerTitle = "科学通报",
+            Year = "1966",
+            Volume = "17",
+            Issue = "4",
+            Page = "185-188",
+            Authors = [AuthorFormatter.Parse("袁隆平")],
+        });
+        store.Save(new ReferenceItem
+        {
+            Id = "liu-1979",
+            Type = "article-journal",
+            Title = "青蒿素(Arteannuin)的结构和反应",
+            ContainerTitle = "化学学报",
+            Language = "zh",
+            Year = "1979",
+            Volume = "37",
             Issue = "2",
-            Page = "15-28",
+            Page = "129-143",
             Authors =
             [
-                AuthorFormatter.Parse("Smith, John"),
-                AuthorFormatter.Parse("Johnson, Alice"),
-                AuthorFormatter.Parse("Brown, Robert"),
-                AuthorFormatter.Parse("Davis, Mary"),
-                AuthorFormatter.Parse("Wilson, James"),
+                AuthorFormatter.Parse("刘静明"),
+                AuthorFormatter.Parse("倪慕云"),
+                AuthorFormatter.Parse("樊菊芬"),
+                AuthorFormatter.Parse("屠呦呦"),
+                AuthorFormatter.Parse("吴照华"),
+                AuthorFormatter.Parse("吴毓林"),
+                AuthorFormatter.Parse("周维善"),
             ],
         });
         store.Save(new ReferenceItem
         {
-            Id = "sample-book",
+            Id = "watson-1953",
+            Type = "article-journal",
+            Title = "Molecular structure of nucleic acids: a structure for deoxyribose nucleic acid",
+            ContainerTitle = "Nature",
+            Year = "1953",
+            Volume = "171",
+            Issue = "4356",
+            Page = "737-738",
+            Doi = "10.1038/171737a0",
+            Authors =
+            [
+                AuthorFormatter.Parse("Watson, James D"),
+                AuthorFormatter.Parse("Crick, Francis H C"),
+            ],
+        });
+        store.Save(new ReferenceItem
+        {
+            Id = "wang-1960",
             Type = "book",
             Title = "人间词话",
-            PublisherPlace = "上海",
-            Publisher = "上海古籍出版社",
-            Year = "1998",
+            PublisherPlace = "北京",
+            Publisher = "人民文学出版社",
+            Year = "1960",
             Authors = [AuthorFormatter.Parse("王国维")],
         });
         store.Save(new ReferenceItem
         {
-            Id = "sample-thesis",
+            Id = "turing-1938",
             Type = "thesis",
-            Title = "滨水空间使用评价（示例）",
-            PublisherPlace = "广州",
-            Year = "2021",
-            Authors = [AuthorFormatter.Parse("陈晓")],
+            Title = "Systems of Logic Based on Ordinals",
+            PublisherPlace = "Princeton",
+            Publisher = "Princeton University",
+            Year = "1938",
+            Authors = [AuthorFormatter.Parse("Turing, Alan M")],
+        });
+        store.Save(new ReferenceItem
+        {
+            Id = "vaswani-2017",
+            Type = "paper-conference",
+            Title = "Attention is all you need",
+            ContainerTitle = "Advances in Neural Information Processing Systems",
+            Year = "2017",
+            Page = "5998-6008",
+            Authors =
+            [
+                AuthorFormatter.Parse("Vaswani, Ashish"),
+                AuthorFormatter.Parse("Shazeer, Noam"),
+                AuthorFormatter.Parse("Parmar, Niki"),
+                AuthorFormatter.Parse("Uszkoreit, Jakob"),
+                AuthorFormatter.Parse("Jones, Llion"),
+                AuthorFormatter.Parse("Gomez, Aidan N"),
+                AuthorFormatter.Parse("Kaiser, Lukasz"),
+                AuthorFormatter.Parse("Polosukhin, Illia"),
+            ],
+        });
+        store.Save(new ReferenceItem
+        {
+            Id = "mnist-1998",
+            Type = "dataset",
+            Title = "The MNIST database of handwritten digits",
+            Year = "1998",
+            Url = "http://yann.lecun.com/exdb/mnist/",
+            Authors =
+            [
+                AuthorFormatter.Parse("LeCun, Yann"),
+                AuthorFormatter.Parse("Cortes, Corinna"),
+                AuthorFormatter.Parse("Burges, Christopher J C"),
+            ],
         });
     }
-
-    private static ReferenceItem Journal(
-        string id,
-        IEnumerable<string> authors,
-        string title,
-        string journal,
-        string year,
-        string volume,
-        string issue,
-        string page) => new()
-    {
-        Id = id,
-        Type = "article-journal",
-        Title = title,
-        ContainerTitle = journal,
-        Year = year,
-        Volume = volume,
-        Issue = issue,
-        Page = page,
-        Authors = authors.Select(AuthorFormatter.Parse).ToList(),
-    };
 }

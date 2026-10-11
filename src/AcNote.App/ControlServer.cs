@@ -74,6 +74,7 @@ public sealed class ControlServer : IDisposable
 
             using var document = JsonDocument.Parse(line);
             var command = document.RootElement.GetProperty("cmd").GetString();
+            var form = document.RootElement.TryGetProperty("form", out var formValue) ? formValue.GetString() : null;
             return command switch
             {
                 "ping" => "{\"ok\":true}",
@@ -83,7 +84,7 @@ public sealed class ControlServer : IDisposable
                     _window.WindowState = System.Windows.WindowState.Normal;
                     return "{\"ok\":true}";
                 }),
-                "pick" => OnUi(Pick),
+                "pick" => OnUi(() => Pick(form)),
                 "choose-style" => OnUi(ChooseStyle),
                 _ => Fail("未知命令"),
             };
@@ -94,13 +95,15 @@ public sealed class ControlServer : IDisposable
         }
     }
 
-    private string Pick()
+    private string Pick(string? form)
     {
+        if (_session.Store is null)
+            return Fail("请先在 AcNote 里打开一个文献库。");
         _window.SaveShown();
-        var dialog = new PickerWindow(_session) { Owner = _window };
+        var dialog = new PickerWindow(_session, form == "narrative" ? "narrative" : "parenthetical") { Owner = _window };
         if (dialog.ShowDialog() != true)
             return "{\"ok\":false,\"cancelled\":true}";
-        return JsonSerializer.Serialize(new { ok = true, ids = dialog.SelectedIds, styleId = _session.StyleId });
+        return JsonSerializer.Serialize(new { ok = true, ids = dialog.SelectedIds, styleId = _session.StyleId, form = dialog.SelectedForm });
     }
 
     private string ChooseStyle()

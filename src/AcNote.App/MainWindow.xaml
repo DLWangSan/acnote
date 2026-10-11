@@ -11,21 +11,35 @@
         FontSize="14">
     <DockPanel>
         <Border DockPanel.Dock="Top" Background="White" BorderBrush="#E4DFD6" BorderThickness="0,0,0,1" Padding="16,12">
-            <DockPanel>
-                <TextBlock Text="AcNote" FontSize="20" FontWeight="SemiBold" Foreground="#0F5C5C" VerticalAlignment="Center" Margin="0,0,20,0"/>
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                    <Button Content="新建" Click="New_Click"/>
-                    <Button Content="保存" Click="Save_Click" Style="{StaticResource AccentButton}"/>
-                    <Button Content="删除" Click="Delete_Click"/>
-                    <Button Content="导入 EndNote" Click="ImportEndNote_Click"/>
-                    <Button Content="导入版式" Click="ImportStyle_Click"/>
-                    <Button Content="插入到 Word" Click="InsertWord_Click"/>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="版式" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="#5C676B"/>
-                    <ComboBox x:Name="StyleCombo" Width="280" Margin="0" DisplayMemberPath="DisplayName" SelectionChanged="StyleCombo_SelectionChanged"/>
-                </StackPanel>
-            </DockPanel>
+            <StackPanel>
+                <DockPanel>
+                    <TextBlock Text="AcNote" FontSize="20" FontWeight="SemiBold" Foreground="#0F5C5C" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <Button Content="新建文献库" Click="NewLibrary_Click"/>
+                        <Button Content="打开文献库" Click="OpenLibrary_Click"/>
+                    </StackPanel>
+                    <TextBlock x:Name="LibraryName" VerticalAlignment="Center" Foreground="#5C676B" Text="尚未打开文献库"/>
+                </DockPanel>
+                <DockPanel Margin="0,10,0,0">
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <Button Content="新建文献" Click="New_Click"/>
+                        <Button Content="保存" Click="Save_Click" Style="{StaticResource AccentButton}"/>
+                        <Button Content="删除" Click="Delete_Click"/>
+                        <Button Content="导入 EndNote" Click="ImportEndNote_Click"/>
+                        <Button Content="编辑版式" Click="EditStyle_Click"/>
+                        <Button Content="导入版式" Click="ImportStyle_Click"/>
+                        <ComboBox x:Name="InsertFormCombo" Width="128" Margin="0,0,8,0" VerticalAlignment="Center" SelectedIndex="0">
+                            <ComboBoxItem Content="（作者，年）" Tag="parenthetical"/>
+                            <ComboBoxItem Content="作者（年）" Tag="narrative"/>
+                        </ComboBox>
+                        <Button Content="插入到 Word" Click="InsertWord_Click"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="版式" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="#5C676B"/>
+                        <ComboBox x:Name="StyleCombo" Width="220" Margin="0" DisplayMemberPath="DisplayName" SelectionChanged="StyleCombo_SelectionChanged"/>
+                    </StackPanel>
+                </DockPanel>
+            </StackPanel>
         </Border>
         <Border DockPanel.Dock="Bottom" Background="White" BorderBrush="#E4DFD6" BorderThickness="0,1,0,0" Padding="16,8">
             <DockPanel>
@@ -152,6 +166,8 @@
                     </Grid>
                     <TextBlock Text="DOI" Foreground="#5C676B"/>
                     <TextBox x:Name="DoiBox" TextChanged="Field_Changed"/>
+                    <TextBlock Text="网址" Foreground="#5C676B"/>
+                    <TextBox x:Name="UrlBox" TextChanged="Field_Changed"/>
                     <TextBlock Text="著录预览" FontWeight="SemiBold" Margin="0,8,0,8"/>
                     <TextBox x:Name="PreviewBox" IsReadOnly="True" TextWrapping="Wrap" MinHeight="72" Background="White"/>
                     <TextBlock Text="当前版式缺项" FontWeight="SemiBold" Margin="0,4,0,8"/>

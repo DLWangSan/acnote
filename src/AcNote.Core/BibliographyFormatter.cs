@@ -29,7 +29,15 @@ public static class CitationNumbers
                 end = ordered[index];
             }
 
-            parts.Add(start == end ? start.ToString() : $"{start}-{end}");
+            if (end >= start + 2)
+                parts.Add($"{start}-{end}");
+            else if (end == start)
+                parts.Add(start.ToString());
+            else
+            {
+                parts.Add(start.ToString());
+                parts.Add(end.ToString());
+            }
             index++;
         }
 
@@ -87,6 +95,7 @@ public static class BibliographyFormatter
             "publisher" => item.Publisher,
             "publisher-place" => item.PublisherPlace,
             "doi" => item.Doi,
+            "url" => item.Url,
             _ => "",
         };
         return value?.Trim() ?? "";

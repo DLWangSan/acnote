@@ -7,8 +7,9 @@ namespace AcNote.App;
 public sealed class PickerWindow : Window
 {
     private readonly ListBox _list = new() { SelectionMode = SelectionMode.Extended };
+    private readonly RadioButton _narrative;
 
-    public PickerWindow(Session session)
+    public PickerWindow(Session session, string form = "parenthetical")
     {
         Title = "AcNote 插入引用";
         Width = 680;
@@ -23,7 +24,7 @@ public sealed class PickerWindow : Window
         var root = new DockPanel { Margin = new Thickness(16) };
         var hint = new TextBlock
         {
-            Text = "选择要插入的文献。按住 Ctrl 可以在同一处插入多篇。缺了什么只显示在这里。",
+            Text = "按住 Ctrl 可以在同一处插入多篇。顺序编码会写成 [1,2] 或 [3-5]；著者-出版年可以写成（作者，年），也可以写成作者（年）。换版式以后都会更新。",
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 0, 0, 12),
         };
@@ -51,8 +52,29 @@ public sealed class PickerWindow : Window
         buttons.Children.Add(cancel);
         DockPanel.SetDock(buttons, Dock.Bottom);
 
+        var forms = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Margin = new Thickness(0, 0, 0, 8),
+        };
+        forms.Children.Add(new RadioButton
+        {
+            Content = "（作者，年）",
+            GroupName = "cite-form",
+            IsChecked = form != "narrative",
+            Margin = new Thickness(0, 0, 16, 0),
+        });
+        _narrative = new RadioButton
+        {
+            Content = "作者（年）",
+            GroupName = "cite-form",
+            IsChecked = form == "narrative",
+        };
+        forms.Children.Add(_narrative);
+        DockPanel.SetDock(forms, Dock.Bottom);
+
         var style = session.CurrentStyle;
-        foreach (var item in session.Store.List())
+        foreach (var item in session.Store?.List() ?? [])
         {
             var missing = MissingFieldChecker.Check(item, style);
             _list.Items.Add(new PickRow(
@@ -65,11 +87,14 @@ public sealed class PickerWindow : Window
         _list.ItemTemplate = CreateTemplate();
         root.Children.Add(hint);
         root.Children.Add(buttons);
+        root.Children.Add(forms);
         root.Children.Add(_list);
         Content = root;
     }
 
     public List<string> SelectedIds { get; private set; } = [];
+
+    public string SelectedForm => _narrative.IsChecked == true ? "narrative" : "parenthetical";
 
     private static DataTemplate CreateTemplate()
     {

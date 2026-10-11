@@ -1,9 +1,10 @@
 {
   "id": "gb-t-7714-2015-numeric",
-  "name": "GB/T 7714-2015 顺序编码制",
+  "name": "GB/T 7714",
   "version": "2015.1",
-  "status": "base",
-  "source": "GB/T 7714-2015 信息与文献 参考文献著录规则",
+  "layout": "numeric",
+  "group": "classic",
+  "source": "GB/T 7714-2015",
   "etAl": {
     "minCount": 4,
     "useFirst": 3,
@@ -15,7 +16,8 @@
     "book": ["author", "title", "publisher", "year"],
     "thesis": ["author", "title", "publisher", "year"],
     "chapter": ["author", "title", "container-title", "year", "page"],
-    "paper-conference": ["author", "title", "container-title", "year"]
+    "paper-conference": ["author", "title", "container-title", "year"],
+    "dataset": ["author", "title", "year"]
   },
   "templates": {
     "article-journal": [
@@ -60,7 +62,14 @@
       { "field": "title", "suffix": "[C]. " },
       { "field": "container-title", "suffix": ", " },
       { "field": "year" },
+      { "field": "page", "prefix": ": " },
       { "literal": "." }
+    ],
+    "dataset": [
+      { "field": "author", "suffix": ". " },
+      { "field": "title", "suffix": "[DS]. " },
+      { "field": "year", "suffix": ". " },
+      { "field": "url" }
     ],
     "document": [
       { "field": "author", "suffix": ". " },

@@ -35,6 +35,7 @@ public static class MissingFieldChecker
         (_, "page") => "页码",
         (_, "publisher") => "出版者",
         (_, "publisher-place") => "出版地",
+        (_, "url") => "网址",
         (_, "container-title") => "来源",
         _ => field,
     };

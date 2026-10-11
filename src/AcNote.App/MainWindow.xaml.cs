@@ -24,7 +24,7 @@ public partial class MainWindow : Window
         MissingList.ItemsSource = _missing;
         TypeCombo.ItemsSource = ReferenceTypes.All.Select(item => new TypeChoice(item.Id, item.Label)).ToList();
         FillStyleCombo();
-        Reload(_session.Store.List().FirstOrDefault()?.Id);
+        Reload(_session.Store?.List().FirstOrDefault()?.Id);
     }
 
     public void SetWordStatus(string text) => WordStatusText.Text = text;
@@ -43,12 +43,21 @@ public partial class MainWindow : Window
     private void Reload(string? selectId)
     {
         Save(_shownId);
+        UpdateLibraryTitle();
         _loading = true;
         _rows.Clear();
+        if (_session.Store is not LibraryStore store)
+        {
+            SummaryText.Text = "尚未打开文献库";
+            _loading = false;
+            ClearForm();
+            return;
+        }
+
         var filter = FilterBox.Text.Trim();
         var style = _session.CurrentStyle;
         var missingCount = 0;
-        foreach (var item in _session.Store.List())
+        foreach (var item in store.List())
         {
             var missing = MissingFieldChecker.Check(item, style);
             if (missing.Count > 0)
@@ -65,7 +74,7 @@ public partial class MainWindow : Window
             });
         }
 
-        var total = _session.Store.Count();
+        var total = store.Count();
         SummaryText.Text = $"文献 {total} 条，其中 {missingCount} 条在当前版式下有缺项";
         ReferenceList.SelectedItem = _rows.FirstOrDefault(row => row.Id == selectId) ?? _rows.FirstOrDefault();
         _loading = false;
@@ -77,7 +86,7 @@ public partial class MainWindow : Window
 
     private void Show(string id)
     {
-        var item = _session.Store.Find(id);
+        var item = _session.Store?.Find(id);
         if (item is null)
         {
             ClearForm();
@@ -98,6 +107,7 @@ public partial class MainWindow : Window
         PlaceBox.Text = item.PublisherPlace;
         PublisherBox.Text = item.Publisher;
         DoiBox.Text = item.Doi;
+        UrlBox.Text = item.Url;
         UpdateLabels();
         _loading = false;
         UpdatePreview();
@@ -117,6 +127,7 @@ public partial class MainWindow : Window
         PlaceBox.Clear();
         PublisherBox.Clear();
         DoiBox.Clear();
+        UrlBox.Clear();
         PreviewBox.Clear();
         _missing.Clear();
         CompleteText.Visibility = Visibility.Collapsed;
@@ -125,10 +136,10 @@ public partial class MainWindow : Window
 
     private void Save(string? id)
     {
-        if (_loading || string.IsNullOrEmpty(id))
+        if (_loading || string.IsNullOrEmpty(id) || _session.Store is not LibraryStore store)
             return;
 
-        var existing = _session.Store.Find(id);
+        var existing = store.Find(id);
         var item = ReadForm();
         item.Id = id;
         if (existing is not null)
@@ -136,7 +147,7 @@ public partial class MainWindow : Window
             item.SourceKey = existing.SourceKey;
             item.Extra = existing.Extra;
         }
-        _session.Store.Save(item);
+        store.Save(item);
     }
 
     private ReferenceItem ReadForm() => new()
@@ -153,6 +164,7 @@ public partial class MainWindow : Window
             PublisherPlace = PlaceBox.Text.Trim(),
             Publisher = PublisherBox.Text.Trim(),
             Doi = DoiBox.Text.Trim(),
+            Url = UrlBox.Text.Trim(),
         };
 
     private void UpdatePreview()
@@ -178,6 +190,7 @@ public partial class MainWindow : Window
             "book" or "chapter" => "书名",
             "paper-conference" => "会议名称",
             "thesis" => "来源（可不填）",
+            "dataset" => "来源（可不填）",
             _ => "刊名",
         };
         PlaceLabel.Text = type == "thesis" ? "保存地" : "出版地";
@@ -236,7 +249,7 @@ public partial class MainWindow : Window
     {
         if (id is null)
             return;
-        var item = _session.Store.Find(id);
+        var item = _session.Store?.Find(id);
         var row = _rows.FirstOrDefault(candidate => candidate.Id == id);
         if (item is null || row is null)
             return;
@@ -279,8 +292,128 @@ public partial class MainWindow : Window
         Reload(_shownId);
     }
 
+    private void NewLibrary_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new SaveFileDialog
+        {
+            Title = "新建文献库",
+            Filter = "AcNote 文献库 (*.acnote)|*.acnote",
+            DefaultExt = ".acnote",
+            AddExtension = true,
+        };
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        try
+        {
+            SaveShown();
+            var path = dialog.FileName;
+            DeleteLibraryFiles(path);
+            var store = new LibraryStore(path);
+            if (MessageBox.Show("放入几条经典文献作为示例？", "AcNote", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+                SampleLibrary.Seed(store);
+            _session.UseLibrary(store, path);
+            Reload(store.List().FirstOrDefault()?.Id);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "AcNote");
+        }
+    }
+
+    private void OpenLibrary_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "打开文献库",
+            Filter = "AcNote 文献库 (*.acnote)|*.acnote",
+        };
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        try
+        {
+            SaveShown();
+            var store = new LibraryStore(dialog.FileName);
+            _session.UseLibrary(store, dialog.FileName);
+            Reload(store.List().FirstOrDefault()?.Id);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "AcNote");
+        }
+    }
+
+    private void EditStyle_Click(object sender, RoutedEventArgs e)
+    {
+        var style = _session.CurrentStyle;
+        var json = style.FilePath is not null && File.Exists(style.FilePath)
+            ? File.ReadAllText(style.FilePath)
+            : "";
+        var editor = new StyleEditorWindow(json) { Owner = this };
+        if (editor.ShowDialog() != true)
+            return;
+
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(editor.JsonText);
+            var id = document.RootElement.GetProperty("id").GetString();
+            if (string.IsNullOrWhiteSpace(id) || id.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+            {
+                MessageBox.Show("版式 id 不能包含文件名里不允许的字符。", "AcNote");
+                return;
+            }
+
+            Directory.CreateDirectory(AppPaths.Styles);
+            File.WriteAllText(Path.Combine(AppPaths.Styles, id + ".style"), editor.JsonText);
+            _session.ReloadStyles();
+            _session.StyleId = id;
+            FillStyleCombo();
+            Reload(_shownId);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "AcNote");
+        }
+    }
+
+    private void UpdateLibraryTitle()
+    {
+        if (string.IsNullOrWhiteSpace(_session.LibraryPath))
+        {
+            Title = "AcNote";
+            LibraryName.Text = "尚未打开文献库";
+            return;
+        }
+
+        Title = "AcNote - " + Path.GetFileName(_session.LibraryPath);
+        LibraryName.Text = _session.LibraryPath;
+    }
+
+    private static void DeleteLibraryFiles(string path)
+    {
+        foreach (var candidate in new[] { path, path + "-wal", path + "-shm" })
+        {
+            if (File.Exists(candidate))
+                File.Delete(candidate);
+        }
+    }
+
+    private bool EnsureLibrary()
+    {
+        if (_session.Store is not null)
+            return true;
+        MessageBox.Show("请先新建或打开一个文献库。", "AcNote");
+        return false;
+    }
+
     private void New_Click(object sender, RoutedEventArgs e)
     {
+        if (_session.Store is not LibraryStore store)
+        {
+            MessageBox.Show("请先新建或打开一个文献库。", "AcNote");
+            return;
+        }
         SaveShown();
         var item = new ReferenceItem
         {
@@ -288,19 +421,23 @@ public partial class MainWindow : Window
             Type = "article-journal",
             Title = "未命名",
         };
-        _session.Store.Save(item);
+        store.Save(item);
         Reload(item.Id);
     }
 
     private void Delete_Click(object sender, RoutedEventArgs e)
     {
-        if (_shownId is null)
+        if (_session.Store is not LibraryStore store || _shownId is null)
+        {
+            if (_session.Store is null)
+                MessageBox.Show("请先新建或打开一个文献库。", "AcNote");
             return;
+        }
         if (MessageBox.Show("删除这条文献？", "AcNote", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)
             return;
         var id = _shownId;
         _shownId = null;
-        _session.Store.Delete(id);
+        store.Delete(id);
         Reload(null);
     }
 
@@ -313,6 +450,11 @@ public partial class MainWindow : Window
         };
         if (dialog.ShowDialog(this) != true)
             return;
+        if (_session.Store is not LibraryStore store)
+        {
+            MessageBox.Show("请先新建或打开一个文献库。", "AcNote");
+            return;
+        }
 
         try
         {
@@ -322,7 +464,7 @@ public partial class MainWindow : Window
             var updated = 0;
             foreach (var item in imported.Items)
             {
-                var existing = string.IsNullOrWhiteSpace(item.SourceKey) ? null : _session.Store.FindBySource(item.SourceKey);
+                var existing = string.IsNullOrWhiteSpace(item.SourceKey) ? null : store.FindBySource(item.SourceKey);
                 if (existing is null)
                 {
                     item.Id = Guid.NewGuid().ToString("N");
@@ -334,7 +476,7 @@ public partial class MainWindow : Window
                     item.Extra = existing.Extra;
                     updated++;
                 }
-                _session.Store.Save(item);
+                store.Save(item);
             }
 
             Reload(_shownId);
@@ -379,8 +521,10 @@ public partial class MainWindow : Window
 
     private void InsertWord_Click(object sender, RoutedEventArgs e)
     {
+        if (!EnsureLibrary())
+            return;
         SaveShown();
-        if (_shownId is null)
+        if (_shownId is null || _session.Store is null)
         {
             MessageBox.Show("请先选择一条文献。", "AcNote");
             return;
@@ -400,7 +544,8 @@ public partial class MainWindow : Window
             object selection = application.Selection;
             var styleId = CitationDocument.GetStyleId(document);
             var style = _session.Catalog.Get(string.IsNullOrWhiteSpace(styleId) ? _session.StyleId : styleId);
-            CitationDocument.InsertAndRefresh(document, selection, [_shownId], style, _session.Store.Find);
+            var form = (InsertFormCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? "parenthetical";
+            CitationDocument.InsertAndRefresh(document, selection, [_shownId], form, style, _session.Store.Find);
         }
         catch (Exception ex)
         {

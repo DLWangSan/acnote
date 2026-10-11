@@ -1,0 +1,6 @@
+{
+  "id": "pku",
+  "name": "北京大学",
+  "extends": "gb-t-7714-2015-numeric",
+  "group": "university"
+}

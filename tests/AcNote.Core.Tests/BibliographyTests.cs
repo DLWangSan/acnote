@@ -134,9 +134,139 @@ public class BibliographyTests
     }
 
     [Fact]
+    public void RealWorks_CoverTheSupportedTypes()
+    {
+        var catalog = StyleCatalog.Load(Path.Combine(AppContext.BaseDirectory, "styles"));
+        var numeric = catalog.Get("gb-t-7714-2015-numeric");
+        var authorYear = catalog.Get("author-year");
+
+        var yuan = Journal(["袁隆平"], "水稻的雄性不孕性", "科学通报", "1966", "17", "4", "185-188");
+        Assert.Equal("袁隆平. 水稻的雄性不孕性[J]. 科学通报, 1966, 17(4): 185-188.", BibliographyFormatter.Format(yuan, numeric).Text);
+        Assert.Equal("袁隆平. 1966. 水稻的雄性不孕性[J]. 科学通报, 17(4): 185-188.", BibliographyFormatter.Format(yuan, authorYear).Text);
+        Assert.Equal("（袁隆平，1966）", InTextFormatter.Format([yuan]));
+        Assert.Equal("袁隆平（1966）", InTextFormatter.Format([yuan], narrative: true));
+
+        var watson = new ReferenceItem
+        {
+            Type = "article-journal",
+            Title = "Molecular structure of nucleic acids: a structure for deoxyribose nucleic acid",
+            ContainerTitle = "Nature",
+            Year = "1953",
+            Volume = "171",
+            Issue = "4356",
+            Page = "737-738",
+            Authors = [AuthorFormatter.Parse("Watson, James D"), AuthorFormatter.Parse("Crick, Francis H C")],
+        };
+        Assert.Equal("(Watson and Crick, 1953)", InTextFormatter.Format([watson]));
+        Assert.Equal("Watson and Crick (1953)", InTextFormatter.Format([watson], narrative: true));
+
+        var artemisinin = Journal(
+            ["刘静明", "倪慕云", "樊菊芬", "屠呦呦", "吴照华", "吴毓林", "周维善"],
+            "青蒿素(Arteannuin)的结构和反应",
+            "化学学报",
+            "1979",
+            "37",
+            "2",
+            "129-143");
+        artemisinin.Language = "zh";
+        Assert.StartsWith("刘静明, 倪慕云, 樊菊芬, 等. ", BibliographyFormatter.Format(artemisinin, numeric).Text);
+        Assert.Equal("（刘静明等，1979）", InTextFormatter.Format([artemisinin]));
+        Assert.Equal("刘静明等（1979）", InTextFormatter.Format([artemisinin], narrative: true));
+        Assert.Equal("（袁隆平，1966；刘静明等，1979）", InTextFormatter.Format([yuan, artemisinin]));
+        Assert.Equal("袁隆平（1966）；刘静明等（1979）", InTextFormatter.Format([yuan, artemisinin], narrative: true));
+
+        var book = new ReferenceItem
+        {
+            Type = "book",
+            Title = "人间词话",
+            PublisherPlace = "北京",
+            Publisher = "人民文学出版社",
+            Year = "1960",
+            Authors = [AuthorFormatter.Parse("王国维")],
+        };
+        Assert.Equal("王国维. 人间词话[M]. 北京: 人民文学出版社, 1960.", BibliographyFormatter.Format(book, numeric).Text);
+
+        var thesis = new ReferenceItem
+        {
+            Type = "thesis",
+            Title = "Systems of Logic Based on Ordinals",
+            PublisherPlace = "Princeton",
+            Publisher = "Princeton University",
+            Year = "1938",
+            Authors = [AuthorFormatter.Parse("Turing, Alan M")],
+        };
+        Assert.Equal("Turing A M. Systems of Logic Based on Ordinals[D]. Princeton: Princeton University, 1938.", BibliographyFormatter.Format(thesis, numeric).Text);
+
+        var paper = new ReferenceItem
+        {
+            Type = "paper-conference",
+            Title = "Attention is all you need",
+            ContainerTitle = "Advances in Neural Information Processing Systems",
+            Year = "2017",
+            Page = "5998-6008",
+            Authors =
+            [
+                AuthorFormatter.Parse("Vaswani, Ashish"),
+                AuthorFormatter.Parse("Shazeer, Noam"),
+                AuthorFormatter.Parse("Parmar, Niki"),
+                AuthorFormatter.Parse("Uszkoreit, Jakob"),
+            ],
+        };
+        Assert.Contains("[C]. Advances in Neural Information Processing Systems, 2017: 5998-6008.", BibliographyFormatter.Format(paper, numeric).Text);
+        Assert.Equal("(Vaswani et al., 2017)", InTextFormatter.Format([paper]));
+        Assert.Equal("(Watson and Crick, 1953; Vaswani et al., 2017)", InTextFormatter.Format([watson, paper]));
+
+        var dataset = new ReferenceItem
+        {
+            Type = "dataset",
+            Title = "The MNIST database of handwritten digits",
+            Year = "1998",
+            Url = "http://yann.lecun.com/exdb/mnist/",
+            Authors =
+            [
+                AuthorFormatter.Parse("LeCun, Yann"),
+                AuthorFormatter.Parse("Cortes, Corinna"),
+                AuthorFormatter.Parse("Burges, Christopher J C"),
+            ],
+        };
+        Assert.Equal(
+            "LeCun Y, Cortes C, Burges C J C. The MNIST database of handwritten digits[DS]. 1998. http://yann.lecun.com/exdb/mnist/",
+            BibliographyFormatter.Format(dataset, numeric).Text);
+        Assert.Equal("(LeCun et al., 1998)", InTextFormatter.Format([dataset]));
+    }
+
+    [Fact]
+    public void StyleList_ShowsClassicsThenUniversities()
+    {
+        var names = StyleCatalog.Load(Path.Combine(AppContext.BaseDirectory, "styles")).All.Select(style => style.Name).ToList();
+        Assert.Equal(["GB/T 7714", "Author-Year"], names.Take(2));
+        Assert.Equal(["中山大学", "北京大学", "清华大学"], names.Skip(2).OrderBy(name => name, StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void LibraryRoundTrip_PreservesUrl()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "acnote-lib-" + Guid.NewGuid().ToString("N") + ".acnote");
+        var store = new LibraryStore(path);
+        var item = new ReferenceItem
+        {
+            Id = "mnist",
+            Type = "dataset",
+            Title = "The MNIST database of handwritten digits",
+            Year = "1998",
+            Url = "http://yann.lecun.com/exdb/mnist/",
+            Authors = [AuthorFormatter.Parse("LeCun, Yann")],
+        };
+        store.Save(item);
+        Assert.Equal(item.Url, store.Find("mnist")?.Url);
+    }
+
+    [Fact]
     public void CitationNumbers_GroupConsecutiveEntries()
     {
         Assert.Equal("[1-3,5]", CitationNumbers.Format([3, 1, 2, 5]));
+        Assert.Equal("[1,2]", CitationNumbers.Format([2, 1]));
+        Assert.Equal("[3-5]", CitationNumbers.Format([5, 3, 4]));
         Assert.Equal("[1]", CitationNumbers.Format([1]));
     }
 

@@ -33,12 +33,15 @@ public partial class App : Application
         try
         {
             AppPaths.EnsureStyles(Path.Combine(AppContext.BaseDirectory, "styles"));
-            var store = new LibraryStore(AppPaths.Database);
             var catalog = StyleCatalog.Load(Path.Combine(AppContext.BaseDirectory, "styles"), AppPaths.Styles);
-            if (store.IsNew)
-                SampleLibrary.Seed(store);
+            LibraryStore? store = null;
+            var libraryPath = WorkspaceSettings.LibraryPath;
+            if (!string.IsNullOrWhiteSpace(libraryPath) && File.Exists(libraryPath))
+                store = new LibraryStore(libraryPath);
+            else
+                libraryPath = null;
 
-            var session = new Session(store, catalog);
+            var session = new Session(store, catalog, libraryPath);
             var window = new MainWindow(session);
             MainWindow = window;
             window.Show();

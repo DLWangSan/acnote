@@ -11,7 +11,8 @@ namespace AcNote.WordAddin;
 [ComVisible(true)]
 [Guid("C4A1E0B7-7E2D-4C5A-9F10-6D2B8A1E0C33")]
 [ProgId("AcNote.Connect")]
-[ClassInterface(ClassInterfaceType.AutoDispatch)]
+[ClassInterface(ClassInterfaceType.None)]
+[ComDefaultInterface(typeof(IDTExtensibility2))]
 public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
 {
     private const string Ribbon = """
@@ -33,9 +34,14 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
 
     private object? _application;
 
-    public void OnConnection(object application, ext_ConnectMode connectMode, object addInInst, ref Array custom)
+    public void OnConnection(
+        [MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(VariantDump), MarshalCookie = "dispatch")] object application,
+        ext_ConnectMode connectMode,
+        [MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(VariantDump), MarshalCookie = "dispatch")] object addInInst,
+        [MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(VariantDump), MarshalCookie = "ignore")] object custom)
     {
         _application = application;
+        Log(_application is null ? "connected no-app" : "connected app");
         try
         {
             AppPaths.EnsureStyles(Path.Combine(AppContext.BaseDirectory, "styles"));
@@ -44,21 +50,28 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
         {
             Log(ex.ToString());
         }
-        Log("connected");
     }
 
-    public void OnDisconnection(ext_DisconnectMode removeMode, ref Array custom) => _application = null;
+    public void OnDisconnection(ext_DisconnectMode removeMode, [MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(VariantDump), MarshalCookie = "ignore")] object custom) => _application = null;
 
-    public void OnAddInsUpdate(ref Array custom) { }
+    public void OnAddInsUpdate([MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(VariantDump), MarshalCookie = "ignore")] object custom) { }
 
-    public void OnStartupComplete(ref Array custom) { }
+    public void OnStartupComplete([MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(VariantDump), MarshalCookie = "ignore")] object custom) => Log("startup");
 
-    public void OnBeginShutdown(ref Array custom) { }
+    public void OnBeginShutdown([MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(VariantDump), MarshalCookie = "ignore")] object custom) { }
 
     public string GetCustomUI(string ribbonId)
     {
-        Log("ribbon " + ribbonId);
-        return Ribbon;
+        try
+        {
+            Log("ribbon " + ribbonId);
+            return Ribbon;
+        }
+        catch (Exception ex)
+        {
+            Log(ex.ToString());
+            return Ribbon;
+        }
     }
 
     public void OnInsertCitation(object control) => Guard(() =>
@@ -69,7 +82,7 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
             return;
         var ids = picked.GetProperty("ids").EnumerateArray().Select(item => item.GetString() ?? "").Where(id => id.Length > 0).ToList();
         var style = ResolveStyle(document, picked);
-        CitationDocument.InsertAndRefresh(document, selection, ids, style, Lookup);
+        CitationDocument.InsertAndRefresh(document, selection, ids, FormOf(picked), style, Lookup);
     });
 
     public void OnEditCitation(object control) => Guard(() =>
@@ -81,12 +94,13 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
             return;
         }
 
-        var picked = Ask("{\"cmd\":\"pick\"}");
+        var current = CitationDocument.SelectionForm(selection);
+        var picked = Ask("{\"cmd\":\"pick\",\"form\":\"" + current + "\"}");
         if (!picked.TryGetProperty("ok", out var ok) || !ok.GetBoolean())
             return;
         var ids = picked.GetProperty("ids").EnumerateArray().Select(item => item.GetString() ?? "").Where(id => id.Length > 0).ToList();
         var style = ResolveStyle(document, picked);
-        CitationDocument.ReplaceSelectedAndRefresh(document, selection, ids, style, Lookup);
+        CitationDocument.ReplaceSelectedAndRefresh(document, selection, ids, FormOf(picked), style, Lookup);
     });
 
     public void OnUpdateCitations(object control) => Guard(() =>
@@ -125,7 +139,18 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
     private static StyleCatalog Catalog() =>
         StyleCatalog.Load(Path.Combine(AppContext.BaseDirectory, "styles"), AppPaths.Styles);
 
-    private static ReferenceItem? Lookup(string id) => new LibraryStore(AppPaths.Database).Find(id);
+    private static ReferenceItem? Lookup(string id)
+    {
+        var path = WorkspaceSettings.LibraryPath;
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            throw new InvalidOperationException("请先在 AcNote 里打开一个文献库。");
+        return new LibraryStore(path).Find(id);
+    }
+
+    private static string FormOf(JsonElement picked) =>
+        picked.TryGetProperty("form", out var form) && form.GetString() == "narrative"
+            ? "narrative"
+            : "parenthetical";
 
     private static JsonElement Ask(string request)
     {
@@ -165,18 +190,57 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
         }
     }
 
-    private static void Log(string message)
+    internal static void Log(string message)
     {
+        var line = DateTime.Now.ToString("s") + " " + message + Environment.NewLine;
         try
         {
             Directory.CreateDirectory(AppPaths.Root);
-            File.AppendAllText(AppPaths.AddinLog, DateTime.Now.ToString("s") + " " + message + Environment.NewLine, Encoding.UTF8);
+            File.AppendAllText(AppPaths.AddinLog, line, Encoding.UTF8);
+        }
+        catch
+        {
+            /* 主日志失败时仍写临时文件 */
+        }
+
+        try
+        {
+            File.AppendAllText(Path.Combine(Path.GetTempPath(), "acnote-word.log"), line, Encoding.UTF8);
         }
         catch
         {
             /* 日志失败不影响引用 */
         }
     }
+}
+
+public sealed class VariantDump : ICustomMarshaler
+{
+    private readonly bool _dispatch;
+
+    public VariantDump(string cookie) => _dispatch = cookie == "dispatch";
+
+    public static ICustomMarshaler GetInstance(string cookie) => new VariantDump(cookie);
+
+    public object MarshalNativeToManaged(IntPtr native)
+    {
+        if (!_dispatch || native == IntPtr.Zero)
+            return null!;
+        try
+        {
+            return Marshal.GetObjectForIUnknown(native);
+        }
+        catch (Exception ex)
+        {
+            Connect.Log("dispatch " + ex.GetType().Name);
+            return null!;
+        }
+    }
+
+    public IntPtr MarshalManagedToNative(object managed) => IntPtr.Zero;
+    public void CleanUpNativeData(IntPtr native) { }
+    public void CleanUpManagedData(object managed) { }
+    public int GetNativeDataSize() => -1;
 }
 
 public static class Dialogs
@@ -209,31 +273,38 @@ public enum ext_DisconnectMode
 }
 
 [ComImport]
+[ComVisible(true)]
 [Guid("B65AD801-ABAF-11D0-BB8B-00A0C90F2744")]
 [InterfaceType(ComInterfaceType.InterfaceIsIDispatch)]
 public interface IDTExtensibility2
 {
     [DispId(1)]
-    void OnConnection(object application, ext_ConnectMode connectMode, object addInInst, ref Array custom);
+    void OnConnection(
+        [MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(VariantDump), MarshalCookie = "dispatch")] object application,
+        ext_ConnectMode connectMode,
+        [MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(VariantDump), MarshalCookie = "dispatch")] object addInInst,
+        [MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(VariantDump), MarshalCookie = "ignore")] object custom);
 
     [DispId(2)]
-    void OnDisconnection(ext_DisconnectMode removeMode, ref Array custom);
+    void OnDisconnection(ext_DisconnectMode removeMode, [MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(VariantDump), MarshalCookie = "ignore")] object custom);
 
     [DispId(3)]
-    void OnAddInsUpdate(ref Array custom);
+    void OnAddInsUpdate([MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(VariantDump), MarshalCookie = "ignore")] object custom);
 
     [DispId(4)]
-    void OnStartupComplete(ref Array custom);
+    void OnStartupComplete([MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(VariantDump), MarshalCookie = "ignore")] object custom);
 
     [DispId(5)]
-    void OnBeginShutdown(ref Array custom);
+    void OnBeginShutdown([MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(VariantDump), MarshalCookie = "ignore")] object custom);
 }
 
 [ComImport]
+[ComVisible(true)]
 [Guid("000C0396-0000-0000-C000-000000000046")]
 [InterfaceType(ComInterfaceType.InterfaceIsIDispatch)]
 public interface IRibbonExtensibility
 {
     [DispId(1)]
-    string GetCustomUI(string ribbonId);
+    [return: MarshalAs(UnmanagedType.BStr)]
+    string GetCustomUI([MarshalAs(UnmanagedType.BStr)] string ribbonId);
 }

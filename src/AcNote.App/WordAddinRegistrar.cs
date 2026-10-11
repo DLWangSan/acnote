@@ -1,3 +1,4 @@
+using System.Text;
 using Microsoft.Win32;
 
 namespace AcNote.App;
@@ -35,6 +36,9 @@ public static class WordAddinRegistrar
                 word?.SetValue("CommandLineSafe", 0, RegistryValueKind.DWord);
             }
 
+            using (var keep = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Office\16.0\Word\Resiliency\DoNotDisableAddinList"))
+                keep?.SetValue(ProgId, 1, RegistryValueKind.DWord);
+
             using (var wps = Registry.CurrentUser.CreateSubKey(@"Software\Kingsoft\Office\WPS\AddinsWL"))
                 wps?.SetValue(ProgId, "");
 
@@ -44,11 +48,25 @@ public static class WordAddinRegistrar
                 app?.SetValue("ComHostPath", comhost);
             }
 
+            ClearStartupMark();
             return "Word 功能区已登记。重新打开 Word 后，选项卡显示 AcNote。";
         }
         catch (Exception ex)
         {
             return "Word 功能区登记失败：" + ex.Message;
+        }
+    }
+
+    private static void ClearStartupMark()
+    {
+        using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Office\16.0\Word\Resiliency\StartupItems", writable: true);
+        if (key is null)
+            return;
+
+        foreach (var name in key.GetValueNames())
+        {
+            if (key.GetValue(name) is byte[] bytes && Encoding.Unicode.GetString(bytes).Contains("acnote.connect", StringComparison.OrdinalIgnoreCase))
+                key.DeleteValue(name, throwOnMissingValue: false);
         }
     }
 

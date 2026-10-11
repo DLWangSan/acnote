@@ -1,0 +1,69 @@
+{
+  "id": "author-year",
+  "name": "Author-Year",
+  "version": "2015.1",
+  "extends": "gb-t-7714-2015-numeric",
+  "layout": "author-year",
+  "group": "classic",
+  "source": "GB/T 7714-2015 著者-出版年制",
+  "templates": {
+    "article-journal": [
+      { "field": "author", "suffix": ". " },
+      { "field": "year", "suffix": ". " },
+      { "field": "title", "suffix": "[J]. " },
+      { "field": "container-title", "suffix": ", " },
+      { "field": "volume" },
+      { "field": "issue", "prefix": "(", "suffix": ")" },
+      { "field": "page", "prefix": ": " },
+      { "literal": "." }
+    ],
+    "book": [
+      { "field": "author", "suffix": ". " },
+      { "field": "year", "suffix": ". " },
+      { "field": "title", "suffix": "[M]. " },
+      { "field": "publisher-place", "suffix": ": " },
+      { "field": "publisher" },
+      { "field": "page", "prefix": ": " },
+      { "literal": "." }
+    ],
+    "thesis": [
+      { "field": "author", "suffix": ". " },
+      { "field": "year", "suffix": ". " },
+      { "field": "title", "suffix": "[D]. " },
+      { "field": "publisher-place", "suffix": ": " },
+      { "field": "publisher" },
+      { "literal": "." }
+    ],
+    "chapter": [
+      { "field": "author", "suffix": ". " },
+      { "field": "year", "suffix": ". " },
+      { "field": "title", "suffix": "[M]//" },
+      { "field": "container-title", "suffix": ". " },
+      { "field": "publisher-place", "suffix": ": " },
+      { "field": "publisher" },
+      { "field": "page", "prefix": ": " },
+      { "literal": "." }
+    ],
+    "paper-conference": [
+      { "field": "author", "suffix": ". " },
+      { "field": "year", "suffix": ". " },
+      { "field": "title", "suffix": "[C]. " },
+      { "field": "container-title", "suffix": ", " },
+      { "field": "page", "prefix": ": " },
+      { "literal": "." }
+    ],
+    "dataset": [
+      { "field": "author", "suffix": ". " },
+      { "field": "year", "suffix": ". " },
+      { "field": "title", "suffix": "[DS]. " },
+      { "field": "url" }
+    ],
+    "document": [
+      { "field": "author", "suffix": ". " },
+      { "field": "year", "suffix": ". " },
+      { "field": "title", "suffix": ". " },
+      { "field": "container-title", "suffix": ", " },
+      { "literal": "." }
+    ]
+  }
+}

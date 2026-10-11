@@ -12,6 +12,7 @@ public static class CitationDocument
         object document,
         object selection,
         IReadOnlyList<string> ids,
+        string form,
         ResolvedStyle style,
         Func<string, ReferenceItem?> lookup)
     {
@@ -24,7 +25,7 @@ public static class CitationDocument
         dynamic range = wordSelection.Range;
         range.Collapse(0);
         dynamic control = wordDocument.ContentControls.Add(0, range);
-        Prepare(control, CitePrefix + string.Join(';', ids));
+        Prepare(control, BuildTag(form, ids));
         Refresh(wordDocument, style, lookup);
     }
 
@@ -32,6 +33,7 @@ public static class CitationDocument
         object document,
         object selection,
         IReadOnlyList<string> ids,
+        string form,
         ResolvedStyle style,
         Func<string, ReferenceItem?> lookup)
     {
@@ -39,11 +41,54 @@ public static class CitationDocument
         dynamic wordSelection = selection;
         dynamic control = wordSelection.ParentContentControl;
         var tag = (string)(control.Tag ?? "");
-        if (!tag.StartsWith(CitePrefix, StringComparison.Ordinal))
+        if (!IsCitationTag(tag))
             throw new InvalidOperationException("请把光标放在一处 AcNote 引用里。");
 
-        control.Tag = CitePrefix + string.Join(';', ids);
+        control.Tag = BuildTag(form, ids);
         Refresh(wordDocument, style, lookup);
+    }
+
+    public static string SelectionForm(object selection)
+    {
+        try
+        {
+            dynamic wordSelection = selection;
+            dynamic control = wordSelection.ParentContentControl;
+            return ReadTag((string)(control.Tag ?? "")).Form;
+        }
+        catch
+        {
+            return "parenthetical";
+        }
+    }
+
+    public static string BuildTag(string form, IReadOnlyList<string> ids) =>
+        CitePrefix + (form == "narrative" ? "n" : "p") + "|" + string.Join(';', ids);
+
+    public static bool IsCitationTag(string tag) =>
+        tag.StartsWith(CitePrefix, StringComparison.Ordinal);
+
+    public static (string Form, List<string> Ids) ReadTag(string tag)
+    {
+        var body = tag.StartsWith(CitePrefix, StringComparison.Ordinal) ? tag[CitePrefix.Length..] : tag;
+        string form;
+        if (body.StartsWith("n|", StringComparison.Ordinal))
+        {
+            form = "narrative";
+            body = body[2..];
+        }
+        else if (body.StartsWith("p|", StringComparison.Ordinal))
+        {
+            form = "parenthetical";
+            body = body[2..];
+        }
+        else
+        {
+            form = "parenthetical";
+        }
+
+        var ids = body.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        return (form, ids);
     }
 
     public static bool SelectionIsCitation(object selection)
@@ -53,7 +98,7 @@ public static class CitationDocument
             dynamic wordSelection = selection;
             dynamic control = wordSelection.ParentContentControl;
             var tag = (string)(control.Tag ?? "");
-            return tag.StartsWith(CitePrefix, StringComparison.Ordinal);
+            return IsCitationTag(tag);
         }
         catch
         {
@@ -64,7 +109,7 @@ public static class CitationDocument
     public static void Refresh(object document, ResolvedStyle style, Func<string, ReferenceItem?> lookup)
     {
         dynamic wordDocument = document;
-        var cites = new List<(int Start, dynamic Control, List<string> Ids)>();
+        var cites = new List<(int Start, dynamic Control, string Form, List<string> Ids)>();
         dynamic? bibliography = null;
         var count = (int)wordDocument.ContentControls.Count;
         for (var index = 1; index <= count; index++)
@@ -73,10 +118,8 @@ public static class CitationDocument
             var tag = (string)(control.Tag ?? "");
             if (tag.StartsWith(CitePrefix, StringComparison.Ordinal))
             {
-                var ids = tag[CitePrefix.Length..]
-                    .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                    .ToList();
-                cites.Add(((int)control.Range.Start, control, ids));
+                var parsed = ReadTag(tag);
+                cites.Add(((int)control.Range.Start, control, parsed.Form, parsed.Ids));
             }
             else if (tag == BibliographyTag)
             {
@@ -98,9 +141,12 @@ public static class CitationDocument
             }
         }
 
+        var authorYear = string.Equals(style.Layout, "author-year", StringComparison.OrdinalIgnoreCase);
         foreach (var cite in cites)
         {
-            var rendered = CitationNumbers.Format(cite.Ids.Select(id => numbers[id]));
+            var rendered = authorYear
+                ? InTextFormatter.Format(cite.Ids.Select(lookup), cite.Form == "narrative")
+                : CitationNumbers.Format(cite.Ids.Select(id => numbers[id]));
             SetText(cite.Control, rendered);
         }
 
@@ -112,13 +158,29 @@ public static class CitationDocument
         }
 
         var lines = new List<string>();
-        foreach (var id in order)
+        if (authorYear)
         {
-            var item = lookup(id);
-            var body = item is null
-                ? "（库中已无此文献）"
-                : BibliographyFormatter.Format(item, style).Text;
-            lines.Add($"[{numbers[id]}] {body}");
+            var entries = order
+                .Select(id => (Id: id, Item: lookup(id)))
+                .OrderBy(entry => entry.Item is null ? "" : InTextFormatter.SortKey(entry.Item), StringComparer.CurrentCulture)
+                .ThenBy(entry => entry.Item?.Year ?? "", StringComparer.Ordinal);
+            foreach (var entry in entries)
+            {
+                lines.Add(entry.Item is null
+                    ? "（库中已无此文献）"
+                    : BibliographyFormatter.Format(entry.Item, style).Text);
+            }
+        }
+        else
+        {
+            foreach (var id in order)
+            {
+                var item = lookup(id);
+                var body = item is null
+                    ? "（库中已无此文献）"
+                    : BibliographyFormatter.Format(item, style).Text;
+                lines.Add($"[{numbers[id]}] {body}");
+            }
         }
 
         if (bibliography is null)

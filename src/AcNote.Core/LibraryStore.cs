@@ -45,6 +45,7 @@ public sealed class LibraryStore
             CREATE INDEX IF NOT EXISTS ix_refs_source ON refs(source_key);
             """;
         command.ExecuteNonQuery();
+        EnsureColumn(connection, "url", "TEXT");
     }
 
     public bool IsNew { get; }
@@ -117,10 +118,10 @@ public sealed class LibraryStore
                 """
                 INSERT INTO refs (
                   id, type, title, container_title, year, volume, issue, page,
-                  publisher, publisher_place, doi, language, authors_json, source_key, extra_json
+                  publisher, publisher_place, doi, url, language, authors_json, source_key, extra_json
                 ) VALUES (
                   $id, $type, $title, $container, $year, $volume, $issue, $page,
-                  $publisher, $place, $doi, $language, $authors, $source, $extra
+                  $publisher, $place, $doi, $url, $language, $authors, $source, $extra
                 )
                 ON CONFLICT(id) DO UPDATE SET
                   type = excluded.type,
@@ -133,6 +134,7 @@ public sealed class LibraryStore
                   publisher = excluded.publisher,
                   publisher_place = excluded.publisher_place,
                   doi = excluded.doi,
+                  url = excluded.url,
                   language = excluded.language,
                   authors_json = excluded.authors_json,
                   source_key = excluded.source_key,
@@ -178,6 +180,7 @@ public sealed class LibraryStore
         command.Parameters.AddWithValue("$publisher", item.Publisher ?? "");
         command.Parameters.AddWithValue("$place", item.PublisherPlace ?? "");
         command.Parameters.AddWithValue("$doi", item.Doi ?? "");
+        command.Parameters.AddWithValue("$url", item.Url ?? "");
         command.Parameters.AddWithValue("$language", item.Language ?? "");
         command.Parameters.AddWithValue("$authors", JsonSerializer.Serialize(item.Authors, JsonOptions));
         command.Parameters.AddWithValue("$source", item.SourceKey ?? "");
@@ -202,6 +205,7 @@ public sealed class LibraryStore
             Publisher = ReadString(reader, "publisher"),
             PublisherPlace = ReadString(reader, "publisher_place"),
             Doi = ReadString(reader, "doi"),
+            Url = ReadString(reader, "url"),
             Language = ReadString(reader, "language"),
             SourceKey = ReadString(reader, "source_key"),
             Authors = authors,
@@ -209,9 +213,33 @@ public sealed class LibraryStore
         };
     }
 
+    private static void EnsureColumn(SqliteConnection connection, string column, string type)
+    {
+        using var info = connection.CreateCommand();
+        info.CommandText = "PRAGMA table_info(refs)";
+        using var reader = info.ExecuteReader();
+        while (reader.Read())
+        {
+            if (string.Equals(reader.GetString(1), column, StringComparison.OrdinalIgnoreCase))
+                return;
+        }
+
+        reader.Close();
+        using var alter = connection.CreateCommand();
+        alter.CommandText = $"ALTER TABLE refs ADD COLUMN {column} {type}";
+        alter.ExecuteNonQuery();
+    }
+
     private static string ReadString(SqliteDataReader reader, string column)
     {
-        var ordinal = reader.GetOrdinal(column);
-        return reader.IsDBNull(ordinal) ? "" : reader.GetString(ordinal);
+        try
+        {
+            var ordinal = reader.GetOrdinal(column);
+            return reader.IsDBNull(ordinal) ? "" : reader.GetString(ordinal);
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return "";
+        }
     }
 }

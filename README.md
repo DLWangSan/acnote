@@ -6,16 +6,12 @@
 
 A reference manager organized around citation styles: Chinese and English author lists, shared style files, and citations that can be updated in Word.
 
-[简体中文](README.zh-CN.md) · [What it does](#what-it-does-now) · [How it is put together](#how-it-is-put-together) · [Roadmap](#roadmap) · [Contributing](#contributing)
+[简体中文](README.zh-CN.md) · [What it does](#what-it-does) · [Libraries and styles](#libraries-and-styles) · [Running it](#running-it)
 
-![Status](https://img.shields.io/badge/status-early%20prototype-orange?style=flat-square)
 ![Focus](https://img.shields.io/badge/focus-citation%20formatting-3949ab?style=flat-square)
 ![Languages](https://img.shields.io/badge/languages-English%20%2B%20Chinese-00897b?style=flat-square)
 
 </div>
-
-> [!NOTE]
-> **Early prototype.** You can build it from source. There is no installer yet. The library, GB/T 7714 numeric formatting, Chinese/English author lists, style files, EndNote import, and a Word ribbon are in this repository. The visual style editor, BibTeX/RIS import, and tested WPS support are not. Anything described as planned below is not a promise that it already works.
 
 ## Why this project
 
@@ -28,7 +24,7 @@ Collecting papers is a solved problem in several existing tools. Formatting the 
 
 AcNote keeps the bibliographic record as a description of the source. The style file decides how that record is printed.
 
-## What it does now
+## What it does
 
 ### Chinese and English author lists
 
@@ -39,58 +35,58 @@ The language comes from the record when it is set, otherwise from the title (Han
 | Chinese | 张三, 李四, 王五, 等. … |
 | English | Smith J, Johnson A, Brown R, et al. … |
 
-The default GB/T 7714-2015 numeric style lists every author when there are three or fewer, and the first three plus 等 / et al. when there are more. A style file can change the cutoff and the suffix, including whether a comma appears before 等.
+GB/T 7714 lists every author when there are three or fewer, and the first three plus 等 / et al. when there are more. A style file can change the cutoff and the suffix, including whether a comma appears before 等.
 
-Names are not rewritten in the library to force this. Chinese names stay as entered. Western names stored as `Smith, John` are printed as `Smith J`.
+Chinese names stay as entered. Western names stored as `Smith, John` are printed as `Smith J`.
 
-### Style files
+Author-Year in-text citations use the family name: `(袁隆平, 1966)`, `(Watson and Crick, 1953)`. Four or more authors become `刘静明等` or `Vaswani et al.`
 
-A style is a JSON file with a `.style` extension. One style can `extend` another and override only the rules that differ. A file in the user style folder with the same `id` replaces the built-in one, which is the intended way to share a school style.
+### Reference types
 
-Included now:
-
-- `styles/gb-t-7714-2015-numeric.style` — sequential numbering, based on GB/T 7714-2015
-- `styles/SYSU.style` — a draft that only inherits that style. It is **not** checked against a Sun Yat-sen University handbook. Set `"status": "verified"` after that check.
-
-There is no visual style editor yet. The file is the editor.
-
-```json
-{
-  "id": "sysu-thesis",
-  "name": "中山大学学位论文",
-  "extends": "gb-t-7714-2015-numeric",
-  "status": "draft",
-  "etAl": { "minCount": 4, "useFirst": 3, "zh": ", 等", "en": ", et al." }
-}
-```
-
-### Missing fields, in the library only
-
-Required fields come from the active style and the reference type. A journal article can be missing its volume while a book is missing its publisher. The library shows that list. The Word document does not: empty fields are omitted, and the gap is not written into the manuscript.
-
-The checker does not yet separate “missing”, “not applicable”, and “please confirm”. An article number with no page range is still treated as a missing page when the style requires pages.
+Journal articles, books, theses, book chapters, conference papers, and datasets. A dataset keeps its URL. Sample records in a new library are published works: 袁隆平 1966, the 1979 artemisinin structure paper, Watson and Crick 1953, 王国维《人间词话》, Turing's 1938 dissertation, Vaswani et al. 2017, and the MNIST dataset.
 
 ### Word
 
 Running AcNote registers its Word add-in in the current user account. Close Word and open it again. The ribbon tab is **AcNote**, with 插入引用, 编辑引用, 更新引用, and 版式.
 
-The desktop program and the add-in share one library. Insert stores the record id in the document and refreshes the visible citation and bibliography from the current style. This path is implemented and covered by formatting tests; it still needs more trials on real thesis files.
+The desktop program and the add-in share the library file that is currently open. Insert stores the record id in the document and refreshes the visible citation and bibliography from the current style.
 
-WPS is not supported yet. A registry value is written so a later build can look for the same add-in. That has not been tested, and it should not be treated as WPS support.
+WPS uses the same add-in registration. It has not been tried in WPS yet.
 
 ### Import
 
 EndNote X9.3 and later `.enl` libraries, compressed `.enlx` libraries, and EndNote XML can be imported. The original library is only read. Older EndNote libraries need an EndNote XML export.
 
-BibTeX, RIS, and CSL JSON are not imported yet.
+## Libraries and styles
+
+A library is an `.acnote` file. **新建文献库** creates one, **打开文献库** switches to another, and the last file is opened again next time. One person can keep a thesis library and a paper library side by side. References are added inside the open file.
+
+Missing fields are listed in that library, from the active style and the reference type. The Word document omits empty fields and does not print placeholders.
+
+A style is a JSON file with a `.style` extension. One style can `extend` another and override only the rules that differ. **编辑版式** opens the current file; saving writes it to `%AppData%\AcNote\styles`, and that copy replaces the built-in style with the same `id`. **导入版式** installs a file the same way.
+
+The style list shows two classics, then university names:
+
+- `GB/T 7714` — numeric
+- `Author-Year` — author-year, extending GB/T 7714
+- `中山大学`, `北京大学`, `清华大学` — each extends GB/T 7714
+
+```json
+{
+  "id": "sysu",
+  "name": "中山大学",
+  "extends": "gb-t-7714-2015-numeric",
+  "group": "university"
+}
+```
 
 ## How it is put together
 
-The formatter does not live inside the Word add-in. The desktop program owns the library and the style files. Word asks it to pick records and then writes the formatted text back into the document.
+The formatter does not live inside the Word add-in. The desktop program owns the open library and the style files. Word asks it to pick records and then writes the formatted text back into the document.
 
 ```mermaid
 flowchart TD
-    A[EndNote library or XML] --> B[Reference library]
+    A[EndNote library or XML] --> B[.acnote library file]
     B --> C[Language and author formatting]
     C --> D[Style file]
     D --> E[Bibliography text]
@@ -102,26 +98,6 @@ flowchart TD
 
 People formatting a thesis or a paper against a specific style, especially when the bibliography mixes Chinese and English. It is not a PDF reader, and it is not trying to cover search, recommendations, or annotation.
 
-## Roadmap
-
-Done in this repository, with the limits noted above:
-
-- [x] Reference library, GB/T 7714-2015 numeric output, and Chinese/English author rules
-- [x] `.style` files with inheritance and override
-- [x] Style-based missing-field list in the library
-- [x] EndNote `.enl`, `.enlx`, and XML import
-- [x] Word ribbon registered by the desktop program
-
-Not done:
-
-- [ ] Visual style editor
-- [ ] BibTeX, RIS, and CSL JSON import
-- [ ] Clearer handling of article numbers versus page ranges
-- [ ] WPS tested against specific versions
-- [ ] An installer and a versioned release
-
-A useful next checkpoint is a thesis file that can be saved, closed, reopened, and refreshed after a style change.
-
 ## Running it
 
 Install the [.NET 9 desktop runtime](https://dotnet.microsoft.com/download/dotnet/9.0), then:
@@ -130,24 +106,19 @@ Install the [.NET 9 desktop runtime](https://dotnet.microsoft.com/download/dotne
 dotnet run --project src/AcNote.App
 ```
 
-The first launch copies built-in styles into `%AppData%\AcNote\styles` and registers the Word ribbon. Restart Word after that. Sample records are added only when the library database is created.
+The first launch copies built-in styles into `%AppData%\AcNote\styles` and registers the Word ribbon. Restart Word after that. Create or open an `.acnote` library from the toolbar. A new library can start with the classic sample records.
 
 ## Contributing
 
-Style files are the most useful contribution. A school style should say which handbook it follows, and it should not be marked `verified` until the formatted samples match that handbook.
-
-Bug reports are most useful with the style file, the record, and the expected string. Word issues should include the Word version and whether the document was saved and reopened.
+Style files are the most useful contribution. A school style should extend GB/T 7714 and use the university name. Bug reports are most useful with the style file, the record, and the expected string.
 
 ## Design choices
 
 1. The stored record describes the source. The style file describes the printed form.
-2. Missing fields are shown in the library, not inserted into the manuscript.
-3. A school style should be a small file that extends a base style, so a shared correction does not have to be copied into every school file.
-4. Word keeps the record id, so a later refresh can change the printed text.
-
-## License
-
-No license file is in the repository yet. Publishing this code without a `LICENSE` does not by itself grant reuse rights. A license will be added when one is chosen.
+2. A library is a file, so different projects stay separate.
+3. Missing fields are shown in the library, not inserted into the manuscript.
+4. A school style should be a small file that extends a base style.
+5. Word keeps the record id, so a later refresh can change the printed text.
 
 <div align="center">
 

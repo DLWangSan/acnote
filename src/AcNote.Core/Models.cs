@@ -20,6 +20,7 @@ public sealed class ReferenceItem
     public string Publisher { get; set; } = "";
     public string PublisherPlace { get; set; } = "";
     public string Doi { get; set; } = "";
+    public string Url { get; set; } = "";
     public string Language { get; set; } = "";
     public string SourceKey { get; set; } = "";
     public List<Author> Authors { get; set; } = [];
@@ -35,6 +36,7 @@ public static class ReferenceTypes
         ("thesis", "学位论文"),
         ("chapter", "图书章节"),
         ("paper-conference", "会议论文"),
+        ("dataset", "数据集"),
         ("document", "其他"),
     ];
 

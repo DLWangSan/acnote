@@ -33,8 +33,14 @@ public sealed class StyleFile
     public string? Name { get; set; }
     public string? Version { get; set; }
     public string? Extends { get; set; }
+    public string? Layout { get; set; }
+    public string? Group { get; set; }
     public string? Status { get; set; }
     public string? Source { get; set; }
+
+    [JsonIgnore]
+    public string? FilePath { get; set; }
+
     public EtAlRule? EtAl { get; set; }
     public Dictionary<string, List<StyleToken>>? Templates { get; set; }
     public Dictionary<string, List<string>>? Required { get; set; }
@@ -47,16 +53,14 @@ public sealed class ResolvedStyle
     public string Version { get; set; } = "";
     public string Status { get; set; } = "";
     public string Source { get; set; } = "";
+    public string Layout { get; set; } = "numeric";
+    public string Group { get; set; } = "";
+    public string? FilePath { get; set; }
     public EtAlRule EtAl { get; set; } = EtAlRule.Default();
     public Dictionary<string, List<StyleToken>> Templates { get; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, List<string>> Required { get; } = new(StringComparer.OrdinalIgnoreCase);
 
-    public string DisplayName => Status switch
-    {
-        "draft" => $"{Name}（待核对）",
-        "verified" => $"{Name}（已核对）",
-        _ => Name,
-    };
+    public string DisplayName => Name;
 }
 
 public sealed class StyleCatalog
@@ -79,7 +83,18 @@ public sealed class StyleCatalog
     }
 
     public IReadOnlyList<ResolvedStyle> All =>
-        _styles.Values.OrderBy(style => style.Id == DefaultId ? 0 : 1).ThenBy(style => style.Name, StringComparer.CurrentCulture).ToList();
+        _styles.Values
+            .OrderBy(GroupRank)
+            .ThenBy(style => style.Group == "classic" && style.Layout != "author-year" ? 0 : 1)
+            .ThenBy(style => style.Name, StringComparer.CurrentCulture)
+            .ToList();
+
+    private static int GroupRank(ResolvedStyle style) => style.Group switch
+    {
+        "classic" => 0,
+        "university" => 1,
+        _ => 2,
+    };
 
     public ResolvedStyle Get(string? id)
     {
@@ -113,6 +128,7 @@ public sealed class StyleCatalog
                 if (string.IsNullOrWhiteSpace(style?.Id))
                     throw new InvalidOperationException($"版式文件缺少 id：{Path.GetFileName(file)}");
 
+                style.FilePath = file;
                 raw[style.Id] = style;
             }
         }
@@ -151,6 +167,12 @@ public sealed class StyleCatalog
 
         foreach (var part in chain)
         {
+            if (!string.IsNullOrWhiteSpace(part.Layout))
+                result.Layout = part.Layout;
+            if (!string.IsNullOrWhiteSpace(part.Group))
+                result.Group = part.Group;
+            if (!string.IsNullOrWhiteSpace(part.Source))
+                result.Source = part.Source;
             if (part.EtAl is not null)
                 ApplyEtAl(result.EtAl, part.EtAl);
             if (part.Templates is not null)
@@ -168,7 +190,12 @@ public sealed class StyleCatalog
         result.Name = string.IsNullOrWhiteSpace(leaf.Name) ? leaf.Id ?? "" : leaf.Name;
         result.Version = leaf.Version ?? "";
         result.Status = leaf.Status ?? "";
-        result.Source = leaf.Source ?? "";
+        result.Source = string.IsNullOrWhiteSpace(leaf.Source) ? result.Source : leaf.Source;
+        result.Layout = string.IsNullOrWhiteSpace(leaf.Layout) ? result.Layout : leaf.Layout;
+        result.Group = string.IsNullOrWhiteSpace(leaf.Group) ? result.Group : leaf.Group;
+        result.FilePath = leaf.FilePath;
+        if (string.IsNullOrWhiteSpace(result.Layout))
+            result.Layout = "numeric";
         return result;
     }
 
