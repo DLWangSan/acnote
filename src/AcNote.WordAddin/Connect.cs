@@ -16,15 +16,25 @@ namespace AcNote.WordAddin;
 public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
 {
     private const string Ribbon = """
-        <customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui">
+        <customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui" onLoad="OnRibbonLoad">
           <ribbon>
             <tabs>
               <tab id="tabAcNote" label="AcNote">
-                <group id="grpAcNote" label="参考文献">
-                  <button id="btnInsert" label="插入引用" size="large" onAction="OnInsertCitation"/>
-                  <button id="btnEdit" label="编辑引用" size="large" onAction="OnEditCitation"/>
-                  <button id="btnUpdate" label="更新引用" size="large" onAction="OnUpdateCitations"/>
-                  <button id="btnStyle" label="版式" size="large" onAction="OnChooseStyle"/>
+                <group id="grpCitations" label="引用">
+                  <splitButton id="sbInsert" size="large">
+                    <button id="btnInsert" label="插入引用" imageMso="CitationInsert" screentip="插入引用" supertip="在光标处插入引用，可一次选择多篇。" onAction="OnInsertCitation"/>
+                    <menu id="mInsert">
+                      <button id="btnParen" label="（作者，年）" onAction="OnInsertParenthetical"/>
+                      <button id="btnNarr" label="作者（年）" onAction="OnInsertNarrative"/>
+                    </menu>
+                  </splitButton>
+                  <button id="btnOpen" label="打开 AcNote" imageMso="FileOpen" size="large" screentip="打开 AcNote" supertip="回到文献库。" onAction="OnOpenApp"/>
+                  <button id="btnEdit" label="编辑引用" imageMso="SourceManager" screentip="编辑引用" supertip="更换光标所在的引用。" onAction="OnEditCitation"/>
+                </group>
+                <group id="grpBibliography" label="参考文献">
+                  <dropDown id="ddStyle" label="版式" showLabel="false" sizeString="GB/T 7714 Author-Year" getItemCount="StyleCount" getItemLabel="StyleLabel" getSelectedItemIndex="StyleSelected" onAction="StyleChosen"/>
+                  <button id="btnUpdate" label="更新引用和参考文献" imageMso="Refresh" screentip="更新引用和参考文献" supertip="按当前版式重写文中引用和文末列表。" onAction="OnUpdateCitations"/>
+                  <button id="btnEditStyle" label="编辑版式" imageMso="StyleInspector" onAction="OnEditStyle"/>
                 </group>
               </tab>
             </tabs>
@@ -33,6 +43,9 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
         """;
 
     private object? _application;
+    private object? _ribbon;
+
+    public void OnRibbonLoad(object ribbon) => _ribbon = ribbon;
 
     public void OnConnection(
         [MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(VariantDump), MarshalCookie = "dispatch")] object application,
@@ -44,7 +57,7 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
         Log(_application is null ? "connected no-app" : "connected app");
         try
         {
-            AppPaths.EnsureStyles(Path.Combine(AppContext.BaseDirectory, "styles"));
+            AppPaths.EnsureStyles(BundledStyles());
         }
         catch (Exception ex)
         {
@@ -74,15 +87,23 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
         }
     }
 
-    public void OnInsertCitation(object control) => Guard(() =>
+    public void OnInsertCitation(object control) => InsertCitation(null);
+
+    public void OnInsertParenthetical(object control) => InsertCitation("parenthetical");
+
+    public void OnInsertNarrative(object control) => InsertCitation("narrative");
+
+    private void InsertCitation(string? form) => Guard(() =>
     {
         var (document, selection) = Active();
-        var picked = Ask("{\"cmd\":\"pick\"}");
+        var request = form is null ? "{\"cmd\":\"pick\"}" : "{\"cmd\":\"pick\",\"form\":\"" + form + "\"}";
+        var picked = Ask(request);
         if (!picked.TryGetProperty("ok", out var ok) || !ok.GetBoolean())
             return;
         var ids = picked.GetProperty("ids").EnumerateArray().Select(item => item.GetString() ?? "").Where(id => id.Length > 0).ToList();
         var style = ResolveStyle(document, picked);
         CitationDocument.InsertAndRefresh(document, selection, ids, FormOf(picked), style, Lookup);
+        InvalidateStyle();
     });
 
     public void OnEditCitation(object control) => Guard(() =>
@@ -107,15 +128,49 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
     {
         var (document, _) = Active();
         CitationDocument.Refresh(document, ResolveStyle(document, null), Lookup);
+        InvalidateStyle();
     });
 
-    public void OnChooseStyle(object control) => Guard(() =>
+    public void OnOpenApp(object control) => Guard(() => Ask("{\"cmd\":\"activate\"}"));
+
+    public void OnEditStyle(object control) => Guard(() => Ask("{\"cmd\":\"edit-style\"}"));
+
+    public int StyleCount(object control) => Catalog().All.Count;
+
+    public string StyleLabel(object control, int index)
     {
-        var (document, _) = Active();
-        var picked = Ask("{\"cmd\":\"choose-style\"}");
-        if (!picked.TryGetProperty("ok", out var ok) || !ok.GetBoolean())
+        var styles = Catalog().All;
+        return index >= 0 && index < styles.Count ? styles[index].Name : "";
+    }
+
+    public int StyleSelected(object control)
+    {
+        try
+        {
+            var (document, _) = Active();
+            var id = CitationDocument.GetStyleId(document);
+            var styles = Catalog().All;
+            for (var index = 0; index < styles.Count; index++)
+            {
+                if (string.Equals(styles[index].Id, id, StringComparison.OrdinalIgnoreCase))
+                    return index;
+            }
+        }
+        catch (Exception ex)
+        {
+            Log(ex.Message);
+        }
+
+        return 0;
+    }
+
+    public void StyleChosen(object control, string selectedId, int selectedIndex) => Guard(() =>
+    {
+        var styles = Catalog().All;
+        if (selectedIndex < 0 || selectedIndex >= styles.Count)
             return;
-        var style = Catalog().Get(picked.GetProperty("styleId").GetString());
+        var style = styles[selectedIndex];
+        var (document, _) = Active();
         CitationDocument.SetStyleId(document, style.Id);
         CitationDocument.Refresh(document, style, Lookup);
     });
@@ -136,8 +191,14 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
         return Catalog().Get(id);
     }
 
-    private static StyleCatalog Catalog() =>
-        StyleCatalog.Load(Path.Combine(AppContext.BaseDirectory, "styles"), AppPaths.Styles);
+    private static string BundledStyles()
+    {
+        var location = typeof(Connect).Assembly.Location;
+        var directory = string.IsNullOrWhiteSpace(location) ? AppContext.BaseDirectory : Path.GetDirectoryName(location)!;
+        return Path.Combine(directory, "styles");
+    }
+
+    private static StyleCatalog Catalog() => StyleCatalog.Load(BundledStyles(), AppPaths.Styles);
 
     private static ReferenceItem? Lookup(string id)
     {
@@ -177,6 +238,21 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
         return document.RootElement.Clone();
     }
 
+    private void InvalidateStyle()
+    {
+        try
+        {
+            if (_ribbon is null)
+                return;
+            dynamic ribbon = _ribbon;
+            ribbon.InvalidateControl("ddStyle");
+        }
+        catch (Exception ex)
+        {
+            Log(ex.Message);
+        }
+    }
+
     private static void Guard(Action action)
     {
         try
@@ -200,7 +276,7 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
         }
         catch
         {
-            /* 主日志失败时仍写临时文件 */
+            /* The temp log still records the line when AppData cannot be written. */
         }
 
         try
@@ -209,7 +285,7 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
         }
         catch
         {
-            /* 日志失败不影响引用 */
+            /* Logging must not affect citations. */
         }
     }
 }
@@ -296,6 +372,43 @@ public interface IDTExtensibility2
 
     [DispId(5)]
     void OnBeginShutdown([MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(VariantDump), MarshalCookie = "ignore")] object custom);
+
+    [DispId(10)]
+    void OnRibbonLoad(object ribbon);
+
+    [DispId(11)]
+    void OnInsertCitation(object control);
+
+    [DispId(12)]
+    void OnInsertParenthetical(object control);
+
+    [DispId(13)]
+    void OnInsertNarrative(object control);
+
+    [DispId(14)]
+    void OnEditCitation(object control);
+
+    [DispId(15)]
+    void OnUpdateCitations(object control);
+
+    [DispId(16)]
+    void OnOpenApp(object control);
+
+    [DispId(17)]
+    void OnEditStyle(object control);
+
+    [DispId(18)]
+    int StyleCount(object control);
+
+    [DispId(19)]
+    [return: MarshalAs(UnmanagedType.BStr)]
+    string StyleLabel(object control, int index);
+
+    [DispId(20)]
+    int StyleSelected(object control);
+
+    [DispId(21)]
+    void StyleChosen(object control, [MarshalAs(UnmanagedType.BStr)] string selectedId, int selectedIndex);
 }
 
 [ComImport]

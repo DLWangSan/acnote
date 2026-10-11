@@ -25,6 +25,19 @@ public sealed class EtAlRule
         Zh = ", 等",
         En = ", et al.",
     };
+
+    public static EtAlRule CitationDefault() => new()
+    {
+        MinCount = 3,
+        UseFirst = 1,
+        Zh = "等",
+        En = " et al.",
+    };
+}
+
+public sealed class CitationStyle
+{
+    public EtAlRule? EtAl { get; set; }
 }
 
 public sealed class StyleFile
@@ -42,6 +55,7 @@ public sealed class StyleFile
     public string? FilePath { get; set; }
 
     public EtAlRule? EtAl { get; set; }
+    public CitationStyle? Citation { get; set; }
     public Dictionary<string, List<StyleToken>>? Templates { get; set; }
     public Dictionary<string, List<string>>? Required { get; set; }
 }
@@ -57,6 +71,7 @@ public sealed class ResolvedStyle
     public string Group { get; set; } = "";
     public string? FilePath { get; set; }
     public EtAlRule EtAl { get; set; } = EtAlRule.Default();
+    public EtAlRule CitationEtAl { get; set; } = EtAlRule.CitationDefault();
     public Dictionary<string, List<StyleToken>> Templates { get; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, List<string>> Required { get; } = new(StringComparer.OrdinalIgnoreCase);
 
@@ -163,6 +178,7 @@ public sealed class StyleCatalog
         {
             Id = leaf.Id ?? "",
             EtAl = EtAlRule.Default(),
+            CitationEtAl = EtAlRule.CitationDefault(),
         };
 
         foreach (var part in chain)
@@ -175,6 +191,8 @@ public sealed class StyleCatalog
                 result.Source = part.Source;
             if (part.EtAl is not null)
                 ApplyEtAl(result.EtAl, part.EtAl);
+            if (part.Citation?.EtAl is not null)
+                ApplyEtAl(result.CitationEtAl, part.Citation.EtAl);
             if (part.Templates is not null)
             {
                 foreach (var (type, tokens) in part.Templates)

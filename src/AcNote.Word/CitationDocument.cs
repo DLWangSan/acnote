@@ -145,7 +145,7 @@ public static class CitationDocument
         foreach (var cite in cites)
         {
             var rendered = authorYear
-                ? InTextFormatter.Format(cite.Ids.Select(lookup), cite.Form == "narrative")
+                ? InTextFormatter.Format(cite.Ids.Select(lookup), style.CitationEtAl, cite.Form == "narrative")
                 : CitationNumbers.Format(cite.Ids.Select(id => numbers[id]));
             SetText(cite.Control, rendered);
         }
@@ -232,13 +232,13 @@ public static class CitationDocument
     {
         control.Tag = tag;
         control.Title = "AcNote";
-        try { control.Appearance = 2; } catch { /* 旧版本没有隐藏外观 */ }
-        try { control.LockContentControl = true; } catch { /* 保持可更新 */ }
+        try { control.Appearance = 2; } catch { /* Older Word builds have no hidden appearance. */ }
+        try { control.LockContentControl = true; } catch { /* Keep the control from being deleted accidentally. */ }
     }
 
     private static void SetText(dynamic control, string text)
     {
-        try { control.LockContents = false; } catch { /* 继续写入 */ }
+        try { control.LockContents = false; } catch { /* Continue writing when the lock cannot be cleared. */ }
         dynamic range = control.Range;
         range.Text = text ?? "";
     }

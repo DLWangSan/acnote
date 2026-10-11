@@ -33,7 +33,7 @@ public sealed class ControlServer : IDisposable
         }
         catch
         {
-            /* 没有正在等待的连接 */
+            /* No listener is waiting. */
         }
         _cancel.Dispose();
     }
@@ -60,7 +60,7 @@ public sealed class ControlServer : IDisposable
             }
             catch
             {
-                /* 下一轮再接受连接 */
+                /* Accept the next connection. */
             }
         }
     }
@@ -86,6 +86,7 @@ public sealed class ControlServer : IDisposable
                 }),
                 "pick" => OnUi(() => Pick(form)),
                 "choose-style" => OnUi(ChooseStyle),
+                "edit-style" => OnUi(EditStyle),
                 _ => Fail("未知命令"),
             };
         }
@@ -104,6 +105,12 @@ public sealed class ControlServer : IDisposable
         if (dialog.ShowDialog() != true)
             return "{\"ok\":false,\"cancelled\":true}";
         return JsonSerializer.Serialize(new { ok = true, ids = dialog.SelectedIds, styleId = _session.StyleId, form = dialog.SelectedForm });
+    }
+
+    private string EditStyle()
+    {
+        _window.EditCurrentStyle();
+        return "{\"ok\":true}";
     }
 
     private string ChooseStyle()

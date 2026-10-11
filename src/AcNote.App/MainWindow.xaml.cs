@@ -344,6 +344,8 @@ public partial class MainWindow : Window
         }
     }
 
+    public void EditCurrentStyle() => EditStyle_Click(this, new RoutedEventArgs());
+
     private void EditStyle_Click(object sender, RoutedEventArgs e)
     {
         var style = _session.CurrentStyle;

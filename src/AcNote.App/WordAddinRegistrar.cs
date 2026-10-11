@@ -10,7 +10,7 @@ public static class WordAddinRegistrar
 
     public static string TryRegister()
     {
-        var comhost = Path.Combine(AppContext.BaseDirectory, "addin", "AcNote.WordAddin.comhost.dll");
+        var comhost = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AcNote", "addin", "AcNote.WordAddin.comhost.dll");
         var appExe = Environment.ProcessPath ?? "";
         if (!File.Exists(comhost))
             return "未找到 Word 插件，功能区尚未登记。";

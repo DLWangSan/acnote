@@ -236,6 +236,27 @@ public class BibliographyTests
     }
 
     [Fact]
+    public void CitationAuthorList_ComesFromTheStyle()
+    {
+        var directory = Directory.CreateTempSubdirectory("acnote-cite-");
+        File.Copy(Path.Combine(AppContext.BaseDirectory, "styles", "gb-t-7714-2015-numeric.style"), Path.Combine(directory.FullName, "base.style"));
+        File.WriteAllText(Path.Combine(directory.FullName, "school.style"),
+            """
+            {
+              "id": "school",
+              "name": "学校示例",
+              "extends": "gb-t-7714-2015-numeric",
+              "citation": { "etAl": { "minCount": 5, "useFirst": 2, "zh": "等", "en": " et al." } }
+            }
+            """);
+
+        var style = StyleCatalog.Load(directory.FullName).Get("school");
+        var item = Journal(["张三", "李四", "王五"], "题名", "学报", "2020", "1", "", "2-3");
+        Assert.Equal("（张三、李四和王五，2020）", InTextFormatter.Format([item], style.CitationEtAl));
+        Assert.Equal("张三, 李四, 王五. 题名[J]. 学报, 2020, 1: 2-3.", BibliographyFormatter.Format(item, style).Text);
+    }
+
+    [Fact]
     public void StyleList_ShowsClassicsThenUniversities()
     {
         var names = StyleCatalog.Load(Path.Combine(AppContext.BaseDirectory, "styles")).All.Select(style => style.Name).ToList();

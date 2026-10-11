@@ -61,7 +61,7 @@ public partial class App : Application
         _server?.Dispose();
         if (_ownsMutex)
         {
-            try { _mutex?.ReleaseMutex(); } catch { /* 进程退出时互斥量可能已释放 */ }
+            try { _mutex?.ReleaseMutex(); } catch { /* The mutex may already be released while the process exits. */ }
         }
         _mutex?.Dispose();
         base.OnExit(e);

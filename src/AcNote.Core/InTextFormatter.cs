@@ -2,8 +2,9 @@ namespace AcNote.Core;
 
 public static class InTextFormatter
 {
-    public static string Format(IEnumerable<ReferenceItem?> items, bool narrative = false)
+    public static string Format(IEnumerable<ReferenceItem?> items, EtAlRule? rule = null, bool narrative = false)
     {
+        rule ??= EtAlRule.CitationDefault();
         var list = items.ToList();
         if (list.Count == 0)
             return "";
@@ -18,7 +19,7 @@ public static class InTextFormatter
                 continue;
             }
 
-            var text = Piece(item, narrative, chinese);
+            var text = Piece(item, rule, narrative, chinese);
             if (text.Length > 0)
                 parts.Add(text);
         }
@@ -34,11 +35,11 @@ public static class InTextFormatter
         return string.Join(chinese ? "；" : "; ", parts);
     }
 
-    public static string SortKey(ReferenceItem item) => CiteNames(item);
+    public static string SortKey(ReferenceItem item) => CiteNames(item, EtAlRule.CitationDefault());
 
-    private static string Piece(ReferenceItem item, bool narrative, bool chinese)
+    private static string Piece(ReferenceItem item, EtAlRule rule, bool narrative, bool chinese)
     {
-        var names = CiteNames(item);
+        var names = CiteNames(item, rule);
         var year = item.Year.Trim();
         if (narrative)
         {
@@ -59,21 +60,32 @@ public static class InTextFormatter
     private static string YearOnly(string year, bool chinese) =>
         year.Length == 0 ? "" : chinese ? $"（{year}）" : $"({year})";
 
-    private static string CiteNames(ReferenceItem item)
+    private static string CiteNames(ReferenceItem item, EtAlRule rule)
     {
-        var authors = item.Authors.Where(HasName).ToList();
+        var authors = item.Authors.Where(HasName).Select(CiteName).ToList();
         if (authors.Count == 0)
             return "";
 
         var chinese = LanguageDetector.Resolve(item) == "zh";
-        if (authors.Count >= 3)
-            return CiteName(authors[0]) + (chinese ? "等" : " et al.");
-        if (authors.Count == 1)
-            return CiteName(authors[0]);
+        var truncate = authors.Count >= rule.MinCount && rule.UseFirst > 0 && rule.UseFirst < authors.Count;
+        if (!truncate)
+            return JoinNames(authors, chinese);
 
-        var left = CiteName(authors[0]);
-        var right = CiteName(authors[1]);
-        return left + (chinese ? "和" : " and ") + right;
+        var suffix = chinese ? rule.Zh ?? "等" : rule.En ?? " et al.";
+        return JoinNames(authors.Take(rule.UseFirst).ToList(), chinese) + suffix;
+    }
+
+    private static string JoinNames(IReadOnlyList<string> names, bool chinese)
+    {
+        if (names.Count == 0)
+            return "";
+        if (names.Count == 1)
+            return names[0];
+        if (names.Count == 2)
+            return names[0] + (chinese ? "和" : " and ") + names[1];
+
+        var head = string.Join(chinese ? "、" : ", ", names.Take(names.Count - 1));
+        return chinese ? head + "和" + names[^1] : head + " and " + names[^1];
     }
 
     private static string CiteName(Author author)

@@ -11,6 +11,14 @@
     "zh": ", 等",
     "en": ", et al."
   },
+  "citation": {
+    "etAl": {
+      "minCount": 3,
+      "useFirst": 1,
+      "zh": "等",
+      "en": " et al."
+    }
+  },
   "required": {
     "article-journal": ["author", "title", "container-title", "year", "volume", "page"],
     "book": ["author", "title", "publisher", "year"],

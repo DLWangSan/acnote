@@ -39,7 +39,7 @@ GB/T 7714 lists every author when there are three or fewer, and the first three 
 
 Chinese names stay as entered. Western names stored as `Smith, John` are printed as `Smith J`.
 
-Author-Year in-text citations use the family name: `(袁隆平, 1966)`, `(Watson and Crick, 1953)`. Four or more authors become `刘静明等` or `Vaswani et al.`
+Author-Year in-text citations use the family name: `(袁隆平, 1966)`, `(Watson and Crick, 1953)`. The style file sets a separate cutoff for the citation and the bibliography. The built-in citation rule keeps the first author and adds 等 / et al. when there are three or more.
 
 ### Reference types
 

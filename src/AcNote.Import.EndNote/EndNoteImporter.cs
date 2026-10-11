@@ -71,7 +71,7 @@ public static class EndNoteImporter
         }
         finally
         {
-            try { temp.Delete(true); } catch { /* 临时目录留到下次清理 */ }
+            try { temp.Delete(true); } catch { /* Leave the temp directory for a later cleanup. */ }
         }
     }
 
@@ -99,7 +99,7 @@ public static class EndNoteImporter
         }
         finally
         {
-            try { temp.Delete(true); } catch { /* 文件可能仍被打开 */ }
+            try { temp.Delete(true); } catch { /* The file may still be open. */ }
         }
     }
 
@@ -127,7 +127,7 @@ public static class EndNoteImporter
         foreach (var collation in Collations)
         {
             try { connection.CreateCollation(collation, (left, right) => string.CompareOrdinal(left, right)); }
-            catch { /* 这个库没有该排序规则 */ }
+            catch { /* This library does not define that collation. */ }
         }
 
         using (var check = connection.CreateCommand())
