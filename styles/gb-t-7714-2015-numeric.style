@@ -1,0 +1,73 @@
+{
+  "id": "gb-t-7714-2015-numeric",
+  "name": "GB/T 7714-2015 顺序编码制",
+  "version": "2015.1",
+  "status": "base",
+  "source": "GB/T 7714-2015 信息与文献 参考文献著录规则",
+  "etAl": {
+    "minCount": 4,
+    "useFirst": 3,
+    "zh": ", 等",
+    "en": ", et al."
+  },
+  "required": {
+    "article-journal": ["author", "title", "container-title", "year", "volume", "page"],
+    "book": ["author", "title", "publisher", "year"],
+    "thesis": ["author", "title", "publisher", "year"],
+    "chapter": ["author", "title", "container-title", "year", "page"],
+    "paper-conference": ["author", "title", "container-title", "year"]
+  },
+  "templates": {
+    "article-journal": [
+      { "field": "author", "suffix": ". " },
+      { "field": "title", "suffix": "[J]. " },
+      { "field": "container-title", "suffix": ", " },
+      { "field": "year" },
+      { "field": "volume", "prefix": ", " },
+      { "field": "issue", "prefix": "(", "suffix": ")" },
+      { "field": "page", "prefix": ": " },
+      { "literal": "." }
+    ],
+    "book": [
+      { "field": "author", "suffix": ". " },
+      { "field": "title", "suffix": "[M]. " },
+      { "field": "publisher-place", "suffix": ": " },
+      { "field": "publisher" },
+      { "field": "year", "prefix": ", " },
+      { "field": "page", "prefix": ": " },
+      { "literal": "." }
+    ],
+    "thesis": [
+      { "field": "author", "suffix": ". " },
+      { "field": "title", "suffix": "[D]. " },
+      { "field": "publisher-place", "suffix": ": " },
+      { "field": "publisher" },
+      { "field": "year", "prefix": ", " },
+      { "literal": "." }
+    ],
+    "chapter": [
+      { "field": "author", "suffix": ". " },
+      { "field": "title", "suffix": "[M]//" },
+      { "field": "container-title", "suffix": ". " },
+      { "field": "publisher-place", "suffix": ": " },
+      { "field": "publisher" },
+      { "field": "year", "prefix": ", " },
+      { "field": "page", "prefix": ": " },
+      { "literal": "." }
+    ],
+    "paper-conference": [
+      { "field": "author", "suffix": ". " },
+      { "field": "title", "suffix": "[C]. " },
+      { "field": "container-title", "suffix": ", " },
+      { "field": "year" },
+      { "literal": "." }
+    ],
+    "document": [
+      { "field": "author", "suffix": ". " },
+      { "field": "title", "suffix": ". " },
+      { "field": "container-title", "suffix": ", " },
+      { "field": "year" },
+      { "literal": "." }
+    ]
+  }
+}

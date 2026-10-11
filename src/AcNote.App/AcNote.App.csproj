@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <RootNamespace>AcNote.App</RootNamespace>
+    <AssemblyName>AcNote.App</AssemblyName>
+    <ApplicationTitle>AcNote</ApplicationTitle>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AcNote.Core\AcNote.Core.csproj" />
+    <ProjectReference Include="..\AcNote.Import.EndNote\AcNote.Import.EndNote.csproj" />
+    <ProjectReference Include="..\AcNote.Word\AcNote.Word.csproj" />
+    <ProjectReference Include="..\AcNote.WordAddin\AcNote.WordAddin.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="..\..\styles\*.style" Link="styles\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="CopyWordAddin" AfterTargets="Build">
+    <PropertyGroup>
+      <_AddinDir>$(MSBuildThisFileDirectory)..\AcNote.WordAddin\bin\$(Configuration)\net9.0-windows\win-x64\</_AddinDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <_AddinFile Include="$(_AddinDir)**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_AddinFile)" DestinationFiles="@(_AddinFile->'$(TargetDir)addin\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+</Project>

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>AcNote.Import.EndNote</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AcNote.Core\AcNote.Core.csproj" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.1" />
+  </ItemGroup>
+</Project>
