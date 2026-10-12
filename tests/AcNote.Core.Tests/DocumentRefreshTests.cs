@@ -92,7 +92,7 @@ public class DocumentRefreshTests
         doc.ContentControls.Add(CitationDocument.BibliographyTag, 100);
         CitationDocument.Refresh(doc, new(), id => Paper(id, id));
         Assert.Equal("Smith (2020)", cite.Range.Text);
-        Assert.True(cite.LockContents);
+        Assert.False(cite.LockContents);
         cite.Tag = CitationDocument.BuildTag("author-year", ["a"]);
         CitationDocument.Refresh(doc, new(), id => Paper(id, id));
         Assert.Equal("(Smith, 2020)", cite.Range.Text);
@@ -139,6 +139,24 @@ public class DocumentRefreshTests
         Assert.Equal("Smith (2020)", cite.Range.Text);
     }
 
+    [Fact]
+    public void RefreshUnlocksPreviousVersionCitationAndCreatesSeparateBibliography()
+    {
+        var doc = new TestDocument();
+        var cite = doc.ContentControls.Add(CitationDocument.BuildTag("parenthetical", ["a"]), 0);
+        cite.LockContents = true;
+        cite.Range.End = 5;
+        doc.Content.End = 6;
+        CitationDocument.Refresh(doc, new(), id => Paper(id, id));
+        Assert.False(cite.LockContents);
+        Assert.Equal(2, doc.Content.ParagraphsAppended);
+        var bibliography = Assert.Single(doc.ContentControls.Items, c => c.Tag == CitationDocument.BibliographyTag);
+        Assert.True(bibliography.Range.Start > cite.Range.End);
+        CitationDocument.Refresh(doc, new(), id => Paper(id, id));
+        Assert.False(cite.LockContents);
+        Assert.Equal(2, doc.Content.ParagraphsAppended);
+    }
+
     private static ReferenceItem Paper(string id, string title) => new()
     { Id = id, Title = title, Year = "2020", Language = "en", Authors = [AuthorFormatter.Parse("Smith, John")] };
 }
@@ -160,6 +178,7 @@ public class TestControls
     public List<TestControl> Items { get; } = [];
     public int Count => Items.Count;
     public TestControl this[int index] => Items[index - 1];
+    public TestControl Add(int type, TestRange range) => Add("", range.Start);
     public TestControl Add(string tag, int start)
     {
         var control = new TestControl { Tag = tag }; control.Range.Start = start; control.Range.End = start + 5; Items.Add(control); return control;
@@ -169,6 +188,8 @@ public class TestControl
 {
     public string ID { get; } = Guid.NewGuid().ToString();
     public string Tag { get; set; } = "";
+    public string Title { get; set; } = "";
+    public int Appearance { get; set; }
     public TestRange Range { get; } = new();
     public bool LockContents { get; set; }
     public bool LockContentControl { get; set; }
@@ -180,6 +201,8 @@ public class TestRange
     public TestControls ContentControls { get; } = new();
     public int Start { get; set; }
     public int End { get; set; }
+    public int ParagraphsAppended { get; private set; }
+    public void InsertParagraphAfter() { End++; ParagraphsAppended++; }
     public string Text { get; set; } = "";
     public TestFont Font { get; } = new();
     public TestParagraph ParagraphFormat { get; } = new();

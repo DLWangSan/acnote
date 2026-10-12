@@ -271,7 +271,6 @@ public static class CitationDocument
             dynamic current = FindControl(document, cite.Id);
             SetText(current, rendered);
             ApplyFormat(current.Range, citationFormat, false);
-            current.LockContents = true;
         }
 
         if (order.Count == 0)
@@ -351,9 +350,11 @@ public static class CitationDocument
     {
         // Word's final paragraph mark is outside ContentControls. Insert the list
         // into a new, empty paragraph rather than collapsing beyond that mark.
-        var end = (int)document.Content.End - 1;
-        dynamic tail = document.Range(end, end);
-        tail.InsertAfter("\r\r");
+        // In an otherwise empty document, Content.End - 1 can still be inside
+        // the final citation. Insert after the full document range (including
+        // its final paragraph mark), not at that ambiguous collapsed boundary.
+        document.Content.InsertParagraphAfter();
+        document.Content.InsertParagraphAfter();
         var start = (int)document.Content.End - 1;
         dynamic range = document.Range(start, start);
         dynamic control = document.ContentControls.Add(0, range);
@@ -421,7 +422,7 @@ public static class CitationDocument
 
     private static void SetText(dynamic control, string text)
     {
-        try { control.LockContents = false; } catch { /* Continue writing when the lock cannot be cleared. */ }
+        control.LockContents = false;
         dynamic range = control.Range;
         range.Text = text ?? "";
     }
