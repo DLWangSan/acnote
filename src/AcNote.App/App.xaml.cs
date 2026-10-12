@@ -23,7 +23,7 @@ public partial class App : Application
         // letting the single-instance redirect silently keep an old installation.
         if (e.Args.Contains("--register-word", StringComparer.OrdinalIgnoreCase))
         {
-            var status = WordAddinRegistrar.TryRegister();
+            var status = WordAddinRegistrar.TryRegister(force: true);
             Shutdown(status.Contains("已登记", StringComparison.Ordinal) ? 0 : 1);
             return;
         }

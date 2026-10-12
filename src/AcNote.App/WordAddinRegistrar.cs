@@ -35,13 +35,23 @@ public static class WordAddinRegistrar
         own?.DeleteValue("AppPath", false); own?.DeleteValue("ComHostPath", false);
     }
 
-    public static string TryRegister()
+    public static string TryRegister(bool force = false)
     {
         var bundled = Path.Combine(AppContext.BaseDirectory, "addin");
         var comhost = Path.Combine(bundled, "AcNote.WordAddin.comhost.dll");
         var appExe = Environment.ProcessPath ?? "";
         if (!File.Exists(comhost))
             return "未找到 Word 插件，功能区尚未登记。";
+
+        var previousApp = Registry.GetValue(@"HKEY_CURRENT_USER\Software\AcNote", "AppPath", null) as string;
+        if (!force && IsDebugBuild(appExe) && !string.IsNullOrWhiteSpace(previousApp) &&
+            !IsDebugBuild(previousApp) && File.Exists(previousApp))
+        {
+            var installedComHost = Registry.GetValue(@"HKEY_CURRENT_USER\Software\AcNote", "ComHostPath", null) as string ?? "";
+            var kept = "已保留已安装版 Word 插件注册。请从开始菜单启动 AcNote 使用安装版。";
+            WriteRegistrationLog(kept + Environment.NewLine + "AppPath=" + previousApp + Environment.NewLine + "ComHostPath=" + installedComHost);
+            return kept;
+        }
 
         try
         {
@@ -90,6 +100,8 @@ public static class WordAddinRegistrar
                 app?.SetValue("ComHostPath", comhost);
             }
 
+            VerifyRegistration(appExe, comhost);
+
             ClearStartupMark();
             var success = "Word 功能区已登记。重新打开 Word 后，选项卡显示 AcNote。";
             WriteRegistrationLog(success + Environment.NewLine + "AppPath=" + appExe + Environment.NewLine + "ComHostPath=" + comhost);
@@ -101,6 +113,25 @@ public static class WordAddinRegistrar
             WriteRegistrationLog(failure + Environment.NewLine + "AppPath=" + appExe + Environment.NewLine + "ComHostPath=" + comhost);
             return failure;
         }
+    }
+
+    private static bool IsDebugBuild(string path) => path.Contains(
+        Path.DirectorySeparatorChar + "bin" + Path.DirectorySeparatorChar + "Debug" + Path.DirectorySeparatorChar,
+        StringComparison.OrdinalIgnoreCase);
+
+    private static void VerifyRegistration(string appExe, string comhost)
+    {
+        var registeredApp = Registry.GetValue(@"HKEY_CURRENT_USER\Software\AcNote", "AppPath", null) as string;
+        var registeredHost = Registry.GetValue(@"HKEY_CURRENT_USER\Software\AcNote", "ComHostPath", null) as string;
+        var clsidPath = $@"HKEY_CURRENT_USER\Software\Classes\CLSID\{Clsid:B}\InprocServer32";
+        var clsidHost = Registry.GetValue(clsidPath, null, null) as string;
+        using var word = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Office\Word\Addins\" + ProgId);
+        var loadBehavior = word?.GetValue("LoadBehavior");
+        if (!string.Equals(registeredApp, appExe, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(registeredHost, comhost, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(clsidHost, comhost, StringComparison.OrdinalIgnoreCase) ||
+            loadBehavior is null || Convert.ToInt32(loadBehavior) != 3)
+            throw new InvalidOperationException("注册表回读与插件安装路径不一致。请完全退出 AcNote、Word 和 WPS 后重新安装；如果仍失败，请把 word-registration.log 发给开发者。");
     }
 
     private static void WriteRegistrationLog(string message)
