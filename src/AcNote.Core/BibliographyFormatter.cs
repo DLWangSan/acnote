@@ -47,7 +47,7 @@ public static class CitationNumbers
 
 public static class BibliographyFormatter
 {
-    public static FormattedReference Format(ReferenceItem item, ResolvedStyle style)
+    public static FormattedReference Format(ReferenceItem item, ResolvedStyle style, string? yearLabel = null)
     {
         var tokens = style.Templates.TryGetValue(item.Type, out var typed)
             ? typed
@@ -65,7 +65,7 @@ public static class BibliographyFormatter
             if (string.IsNullOrEmpty(token.Field))
                 continue;
 
-            var value = FieldValue(item, token.Field, style);
+            var value = token.Field == "year" && yearLabel is not null ? yearLabel : FieldValue(item, token.Field, style);
             if (string.IsNullOrEmpty(value))
                 continue;
 

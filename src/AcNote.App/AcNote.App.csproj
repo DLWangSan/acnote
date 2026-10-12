@@ -9,6 +9,7 @@
     <RootNamespace>AcNote.App</RootNamespace>
     <AssemblyName>AcNote.App</AssemblyName>
     <ApplicationTitle>AcNote</ApplicationTitle>
+    <ApplicationIcon>Assets/acnote.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\AcNote.Core\AcNote.Core.csproj" />
@@ -21,6 +22,10 @@
   <ItemGroup>
     <Content Include="..\..\styles\*.style" Link="styles\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Assets/acnote.png" />
+    <Resource Include="Assets/acnote.ico" />
+  </ItemGroup>
   <Target Name="CopyWordAddin" AfterTargets="Build">
     <PropertyGroup>
       <_AddinDir>$(MSBuildThisFileDirectory)..\AcNote.WordAddin\bin\$(Configuration)\net9.0-windows\win-x64\</_AddinDir>
@@ -28,7 +33,6 @@
     <ItemGroup>
       <_AddinFile Include="$(_AddinDir)**\*.*" />
     </ItemGroup>
-    <Copy SourceFiles="@(_AddinFile)" DestinationFiles="@(_AddinFile->'$(TargetDir)addin\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" ContinueOnError="true" />
-    <Copy SourceFiles="@(_AddinFile)" DestinationFiles="@(_AddinFile->'$(LocalAppData)\AcNote\addin\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_AddinFile)" DestinationFiles="@(_AddinFile->'$(TargetDir)addin\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
   </Target>
 </Project>

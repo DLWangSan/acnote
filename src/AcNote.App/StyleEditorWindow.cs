@@ -1,3 +1,4 @@
+using AcNote.Core;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Windows;
@@ -17,14 +18,20 @@ public sealed class StyleEditorWindow : Window
     private readonly TextBox _citeZh;
     private readonly TextBox _citeEn;
     private bool _syncing;
+    private readonly ResolvedStyle _resolved;
+    private readonly LayoutEditor _citationLayout;
+    private readonly LayoutEditor _bibliographyLayout;
 
-    public StyleEditorWindow(string json)
+    public StyleEditorWindow(string json, ResolvedStyle resolved)
     {
-        Title = "编辑版式";
+        _resolved = resolved;
+        Title = "版式 · 作者、字体与段落";
+        _citationLayout = new LayoutEditor(resolved.CitationFormat, false);
+        _bibliographyLayout = new LayoutEditor(resolved.BibliographyFormat, true);
         Width = 820;
         Height = 720;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(244, 241, 235));
+        Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(247, 249, 252));
         FontFamily = new System.Windows.Media.FontFamily("Microsoft YaHei UI");
         FontSize = 14;
 
@@ -65,9 +72,19 @@ public sealed class StyleEditorWindow : Window
             box.TextChanged += (_, _) => WriteRulesIntoJson();
 
         ReadRules(json);
+        _syncing = true;
+        Fill(_bibMin, _bibFirst, _bibZh, _bibEn, JsonSerializer.SerializeToNode(resolved.EtAl, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }) as JsonObject, 4, 3, ", 等", ", et al.");
+        Fill(_citeMin, _citeFirst, _citeZh, _citeEn, JsonSerializer.SerializeToNode(resolved.CitationEtAl, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }) as JsonObject, 3, 1, "等", " et al.");
+        _syncing = false;
         root.Children.Add(buttons);
-        root.Children.Add(rules);
-        root.Children.Add(_editor);
+        var tabs = new TabControl();
+        var authorPanel = new DockPanel();
+        authorPanel.Children.Add(rules);
+        authorPanel.Children.Add(_editor);
+        tabs.Items.Add(new TabItem { Header = "作者与版式规则", Content = authorPanel });
+        tabs.Items.Add(new TabItem { Header = "文中字体", Content = new ScrollViewer { Content = _citationLayout } });
+        tabs.Items.Add(new TabItem { Header = "文末字体与段落", Content = new ScrollViewer { Content = _bibliographyLayout } });
+        root.Children.Add(tabs);
         Content = root;
     }
 
@@ -75,8 +92,19 @@ public sealed class StyleEditorWindow : Window
 
     private void SaveClicked()
     {
-        WriteRulesIntoJson();
-        JsonText = _editor.Text;
+        try
+        {
+            ValidateRule(_bibMin, _bibFirst);
+            ValidateRule(_citeMin, _citeFirst);
+            WriteRulesIntoJson();
+            var node = JsonNode.Parse(_editor.Text)!.AsObject();
+            node["bibliographyFormat"] = _bibliographyLayout.Read();
+            var citation = node["citation"] as JsonObject ?? new JsonObject();
+            citation["format"] = _citationLayout.Read();
+            node["citation"] = citation;
+            JsonText = node.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch (Exception ex) { MessageBox.Show(this, ex.Message, "AcNote"); return; }
         try
         {
             using var document = JsonDocument.Parse(JsonText);
@@ -103,10 +131,10 @@ public sealed class StyleEditorWindow : Window
             if (node is null)
                 return;
             _syncing = true;
-            Fill(_bibMin, _bibFirst, _bibZh, _bibEn, node["etAl"] as JsonObject, 4, 3, ", 等", ", et al.");
-            Fill(_citeMin, _citeFirst, _citeZh, _citeEn, node["citation"]?["etAl"] as JsonObject, 3, 1, "等", " et al.");
+            Fill(_bibMin, _bibFirst, _bibZh, _bibEn, node["etAl"] as JsonObject, _resolved.EtAl.MinCount, _resolved.EtAl.UseFirst, _resolved.EtAl.Zh ?? "", _resolved.EtAl.En ?? "");
+            Fill(_citeMin, _citeFirst, _citeZh, _citeEn, node["citation"]?["etAl"] as JsonObject, _resolved.CitationEtAl.MinCount, _resolved.CitationEtAl.UseFirst, _resolved.CitationEtAl.Zh ?? "", _resolved.CitationEtAl.En ?? "");
         }
-        catch (JsonException)
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException)
         {
             /* Keep the boxes when the file is mid-edit. */
         }
@@ -132,7 +160,7 @@ public sealed class StyleEditorWindow : Window
             _syncing = true;
             _editor.Text = node.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
         }
-        catch (JsonException)
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException)
         {
             /* The raw file is saved only after it parses. */
         }
@@ -152,6 +180,12 @@ public sealed class StyleEditorWindow : Window
 
     private static string ReadInt(JsonObject? rule, string name, int fallback) =>
         rule?[name]?.GetValue<int>().ToString() ?? fallback.ToString();
+
+    private static void ValidateRule(TextBox min, TextBox first)
+    {
+        if (!int.TryParse(min.Text, out var count) || !int.TryParse(first.Text, out var take) || count < 2 || take < 1 || take >= count)
+            throw new InvalidOperationException("作者省略规则：起始人数至少为 2，保留人数至少为 1 且小于起始人数。");
+    }
 
     private static JsonObject RuleNode(TextBox min, TextBox first, TextBox zh, TextBox en) => new()
     {
@@ -175,7 +209,7 @@ public sealed class StyleEditorWindow : Window
         var first = Box("3", 42);
         var zh = Box("等", 72);
         var en = Box(" et al.", 88);
-        row.Children.Add(Label("超过"));
+        row.Children.Add(Label("达到"));
         row.Children.Add(min);
         row.Children.Add(Label("人时，列出前"));
         row.Children.Add(first);

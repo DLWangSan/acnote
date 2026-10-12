@@ -2,6 +2,8 @@
 
 # AcNote
 
+<img src="src/AcNote.App/Assets/acnote.png" width="88" alt="AcNote logo"/>
+
 ### Citations, styled for the manuscript.
 
 A reference manager organized around citation styles: Chinese and English author lists, shared style files, and citations that can be updated in Word.
@@ -47,9 +49,19 @@ Journal articles, books, theses, book chapters, conference papers, and datasets.
 
 ### Word
 
-Running AcNote registers its Word add-in in the current user account. Close Word and open it again. The ribbon tab is **AcNote**, with 插入引用, 编辑引用, 更新引用, and 版式.
+Run AcNote once, save your documents, then **close every Word window and reopen Word** to load the updated ribbon. Add-in builds are installed into separate version directories so upgrading does not overwrite DLLs held open by Word.
 
-The desktop program and the add-in share the library file that is currently open. Insert stores the record id in the document and refreshes the visible citation and bibliography from the current style.
+- **插入已选文献 / Insert selected references** inserts the desktop library selection directly, without reopening a picker. Checkboxes and Ctrl / Shift support multiple references.
+- **查找并插入 / Find and insert** opens the searchable picker.
+- **编辑引用 / Edit citation** restores the existing selection. **移除此处引用 / Remove citation** removes that occurrence and renumbers the document.
+- **更新引用和列表 / Update citations and bibliography** refreshes the document. Use the adjacent style dropdown to switch styles.
+- **字体、段落与版式 / Fonts, paragraphs and style** configures citation and bibliography fonts, sizes and superscript, plus bibliography line spacing, paragraph spacing, hanging indent and alignment.
+
+The bibliography starts in a separate paragraph with a blank line before it. Inserting a citation moves the caret outside its content control. Removing the last citation clears its bibliography on refresh.
+
+Documents remember the library path and style. Refresh uses that bound library even if another library is open in the desktop app. Missing records stop the update before existing citation text is overwritten; moved libraries currently need to be restored to their bound path. Author-year collisions get consistent `2020a / 2020b` labels throughout the document without changing stored years.
+
+Desktop shortcuts: `Ctrl+2` inserts selected references, `Ctrl+N` creates a record, and `Ctrl+S` saves. The bottom preview covers selected records; Word resolves year collisions across all references cited in the document.
 
 WPS uses the same add-in registration. It has not been tried in WPS yet.
 
@@ -69,7 +81,7 @@ The style list shows two classics, then university names:
 
 - `GB/T 7714` — numeric
 - `Author-Year` — author-year, extending GB/T 7714
-- `中山大学`, `北京大学`, `清华大学` — each extends GB/T 7714
+- `中山大学`, `北京大学`, `清华大学` — unverified templates extending GB/T 7714; not validated university specifications
 
 ```json
 {
@@ -100,7 +112,7 @@ People formatting a thesis or a paper against a specific style, especially when 
 
 ## Running it
 
-Install the [.NET 9 desktop runtime](https://dotnet.microsoft.com/download/dotnet/9.0), then:
+Install the [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0), then:
 
 ```powershell
 dotnet run --project src/AcNote.App
@@ -125,3 +137,12 @@ Style files are the most useful contribution. A school style should extend GB/T 
 [简体中文](README.zh-CN.md)
 
 </div>
+
+## Verification
+
+```powershell
+dotnet build AcNote.sln -c Release
+dotnet test AcNote.sln -c Release
+```
+
+On Windows with desktop Word installed, optionally run `dotnet run --project tests/AcNote.Word.Smoke`. It uses its own temporary documents to check paragraph separation, repeated refresh, year disambiguation, typography, multi-reference insertion and removal. It is excluded from the default unit test run. Ribbon interactions and WPS compatibility require separate checks; see [TESTING.md](TESTING.md).

@@ -21,20 +21,22 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
             <tabs>
               <tab id="tabAcNote" label="AcNote">
                 <group id="grpCitations" label="引用">
-                  <splitButton id="sbInsert" size="large">
-                    <button id="btnInsert" label="插入引用" imageMso="CitationInsert" screentip="插入引用" supertip="在光标处插入引用，可一次选择多篇。" onAction="OnInsertCitation"/>
-                    <menu id="mInsert">
-                      <button id="btnParen" label="（作者，年）" onAction="OnInsertParenthetical"/>
-                      <button id="btnNarr" label="作者（年）" onAction="OnInsertNarrative"/>
-                    </menu>
-                  </splitButton>
-                  <button id="btnOpen" label="打开 AcNote" imageMso="FileOpen" size="large" screentip="打开 AcNote" supertip="回到文献库。" onAction="OnOpenApp"/>
-                  <button id="btnEdit" label="编辑引用" imageMso="SourceManager" screentip="编辑引用" supertip="更换光标所在的引用。" onAction="OnEditCitation"/>
+                  <button id="btnInsertSelected" label="插入已选文献" size="large" imageMso="CitationInsert" screentip="插入主程序中已选的文献" supertip="在 AcNote 文献库中选择一篇或多篇文献，返回 Word 后点击这里直接插入，无需再次选择。" onAction="OnInsertCitation"/>
+                  <button id="btnFind" label="查找并插入" size="large" imageMso="FindDialog" onAction="OnFindCitation"/>
+                  <button id="btnEdit" label="编辑引用" imageMso="SourceManager" onAction="OnEditCitation"/>
+                  <button id="btnRemove" label="移除此处引用" imageMso="Delete" onAction="OnRemoveCitation"/>
+                  <menu id="mInsert" label="引用形式" imageMso="CitationInsert">
+                    <button id="btnParen" label="插入已选文献：（作者，年）" onAction="OnInsertParenthetical"/>
+                    <button id="btnNarr" label="插入已选文献：作者（年）" onAction="OnInsertNarrative"/>
+                  </menu>
+                </group>
+                <group id="grpLibrary" label="文献库">
+                  <button id="btnOpen" label="转到 AcNote" imageMso="FileOpen" size="large" onAction="OnOpenApp"/>
                 </group>
                 <group id="grpBibliography" label="参考文献">
-                  <dropDown id="ddStyle" label="版式" showLabel="false" sizeString="GB/T 7714 Author-Year" getItemCount="StyleCount" getItemLabel="StyleLabel" getSelectedItemIndex="StyleSelected" onAction="StyleChosen"/>
-                  <button id="btnUpdate" label="更新引用和参考文献" imageMso="Refresh" screentip="更新引用和参考文献" supertip="按当前版式重写文中引用和文末列表。" onAction="OnUpdateCitations"/>
-                  <button id="btnEditStyle" label="编辑版式" imageMso="StyleInspector" onAction="OnEditStyle"/>
+                  <button id="btnUpdate" label="更新引用和列表" size="large" imageMso="Refresh" supertip="按文中首次出现顺序重新编号，同时更新参考文献列表。" onAction="OnUpdateCitations"/>
+                  <dropDown id="ddStyle" label="版式" showLabel="true" sizeString="GB/T 7714-2015 顺序编码制" getItemCount="StyleCount" getItemLabel="StyleLabel" getSelectedItemIndex="StyleSelected" onAction="StyleChosen"/>
+                  <button id="btnEditStyle" label="字体、段落与版式" imageMso="StyleInspector" onAction="OnEditStyle"/>
                 </group>
               </tab>
             </tabs>
@@ -87,22 +89,25 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
         }
     }
 
+    public void OnFindCitation(object control) => InsertCitation(null, true);
+
     public void OnInsertCitation(object control) => InsertCitation(null);
 
     public void OnInsertParenthetical(object control) => InsertCitation("parenthetical");
 
     public void OnInsertNarrative(object control) => InsertCitation("narrative");
 
-    private void InsertCitation(string? form) => Guard(() =>
+    private void InsertCitation(string? form, bool find = false) => Guard(() =>
     {
         var (document, selection) = Active();
-        var request = form is null ? "{\"cmd\":\"pick\"}" : "{\"cmd\":\"pick\",\"form\":\"" + form + "\"}";
+        var request = JsonSerializer.Serialize(new { cmd = find ? "pick" : "selected", form });
         var picked = Ask(request);
         if (!picked.TryGetProperty("ok", out var ok) || !ok.GetBoolean())
             return;
         var ids = picked.GetProperty("ids").EnumerateArray().Select(item => item.GetString() ?? "").Where(id => id.Length > 0).ToList();
         var style = ResolveStyle(document, picked);
-        CitationDocument.InsertAndRefresh(document, selection, ids, FormOf(picked), style, Lookup);
+        CitationDocument.BindLibrary(document, picked.GetProperty("libraryPath").GetString()!);
+        CitationDocument.InsertAndRefresh(document, selection, ids, FormOf(picked), style, LookupFor(document));
         InvalidateStyle();
     });
 
@@ -116,31 +121,44 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
         }
 
         var current = CitationDocument.SelectionForm(selection);
-        var picked = Ask("{\"cmd\":\"pick\",\"form\":\"" + current + "\"}");
+        var picked = Ask(JsonSerializer.Serialize(new { cmd = "pick", form = current, ids = CitationDocument.SelectionIds(selection) }));
         if (!picked.TryGetProperty("ok", out var ok) || !ok.GetBoolean())
             return;
         var ids = picked.GetProperty("ids").EnumerateArray().Select(item => item.GetString() ?? "").Where(id => id.Length > 0).ToList();
         var style = ResolveStyle(document, picked);
-        CitationDocument.ReplaceSelectedAndRefresh(document, selection, ids, FormOf(picked), style, Lookup);
+        CitationDocument.BindLibrary(document, picked.GetProperty("libraryPath").GetString()!);
+        CitationDocument.ReplaceSelectedAndRefresh(document, selection, ids, FormOf(picked), style, LookupFor(document));
     });
 
     public void OnUpdateCitations(object control) => Guard(() =>
     {
         var (document, _) = Active();
-        CitationDocument.Refresh(document, ResolveStyle(document, null), Lookup);
+        CitationDocument.Refresh(document, ResolveStyle(document, null), LookupFor(document));
         InvalidateStyle();
+    });
+
+    public void OnRemoveCitation(object control) => Guard(() =>
+    {
+        var (document, selection) = Active();
+        CitationDocument.RemoveSelectedAndRefresh(document, selection, ResolveStyle(document, null), LookupFor(document));
     });
 
     public void OnOpenApp(object control) => Guard(() => Ask("{\"cmd\":\"activate\"}"));
 
-    public void OnEditStyle(object control) => Guard(() => Ask("{\"cmd\":\"edit-style\"}"));
+    public void OnEditStyle(object control) => Guard(() =>
+    {
+        var (document, _) = Active();
+        Ask(JsonSerializer.Serialize(new { cmd = "edit-style", styleId = ResolveStyle(document, null).Id }));
+        CitationDocument.Refresh(document, ResolveStyle(document, null), LookupFor(document));
+        InvalidateStyle();
+    });
 
     public int StyleCount(object control) => Catalog().All.Count;
 
     public string StyleLabel(object control, int index)
     {
         var styles = Catalog().All;
-        return index >= 0 && index < styles.Count ? styles[index].Name : "";
+        return index >= 0 && index < styles.Count ? styles[index].DisplayName : "";
     }
 
     public int StyleSelected(object control)
@@ -171,8 +189,9 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
             return;
         var style = styles[selectedIndex];
         var (document, _) = Active();
+        CitationDocument.Refresh(document, style, LookupFor(document));
         CitationDocument.SetStyleId(document, style.Id);
-        CitationDocument.Refresh(document, style, Lookup);
+        InvalidateStyle();
     });
 
     private (object Document, object Selection) Active()
@@ -200,12 +219,14 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
 
     private static StyleCatalog Catalog() => StyleCatalog.Load(BundledStyles(), AppPaths.Styles);
 
-    private static ReferenceItem? Lookup(string id)
+    private static Func<string, ReferenceItem?> LookupFor(object document)
     {
-        var path = WorkspaceSettings.LibraryPath;
+        var path = CitationDocument.GetLibraryPath(document);
+        if (string.IsNullOrWhiteSpace(path)) path = WorkspaceSettings.LibraryPath;
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
             throw new InvalidOperationException("请先在 AcNote 里打开一个文献库。");
-        return new LibraryStore(path).Find(id);
+        var records = new LibraryStore(path).List().ToDictionary(item => item.Id);
+        return id => records.GetValueOrDefault(id);
     }
 
     private static string FormOf(JsonElement picked) =>
@@ -406,6 +427,12 @@ public interface IDTExtensibility2
 
     [DispId(20)]
     int StyleSelected(object control);
+
+    [DispId(23)]
+    void OnRemoveCitation(object control);
+
+    [DispId(22)]
+    void OnFindCitation(object control);
 
     [DispId(21)]
     void StyleChosen(object control, [MarshalAs(UnmanagedType.BStr)] string selectedId, int selectedIndex);

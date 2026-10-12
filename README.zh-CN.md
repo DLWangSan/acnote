@@ -2,6 +2,8 @@
 
 # AcNote
 
+<img src="src/AcNote.App/Assets/acnote.png" width="88" alt="AcNote logo"/>
+
 ### 按稿件要求排参考文献。
 
 用来管理文献、套用可共享的版式，并在 Word 里更新引用。中文作者列表用「等」，英文用 et al.，不另建一套作者字段。
@@ -47,9 +49,20 @@ Author-Year 的文中引用用姓：`(袁隆平, 1966)`、`(Watson and Crick, 19
 
 ### Word
 
-运行 AcNote 后，会在当前 Windows 用户下登记 Word 插件。把已经打开的 Word 全部关掉再打开。功能区选项卡是 **AcNote**，命令是：插入引用、编辑引用、更新引用、版式。
+运行 AcNote 后，会在当前 Windows 用户下登记 Word 插件。**保存文档，退出所有 Word 窗口后重新打开**，即可加载新版功能区。插件按版本安装，不覆盖 Word 正在使用的旧文件。
 
-主程序和插件共用当前打开的那份文献库。插入时在文档里记下文献编号，显示出来的引文和文末列表按当前版式生成。
+1. 在主程序列表中勾选文献；支持复选框、Ctrl / Shift 多选。
+2. 在 Word 正文中放好光标，点击 **AcNote → 插入已选文献**。直接使用主程序的选择，不再弹出选择列表。
+3. 没有提前选文献时，使用旁边的 **查找并插入**。
+4. 光标放在引用中，可 **编辑引用** 或 **移除此处引用**；移除后重新编号。
+5. **更新引用和列表** 刷新整篇文档；版式下拉框用于切换格式。
+6. **字体、段落与版式** 设置文中及文末字体、字号、上标，以及文末行距、段前段后、悬挂缩进和对齐。
+
+参考文献列表在独立段落生成，与正文之间保留空行。插入后光标移出引用控件，便于继续写正文。删除最后一处引用后，更新会清理对应列表。
+
+文档记录使用的文献库路径和版式。切换主程序文献库后，插件更新仍读取文档绑定的库。缺失条目时会停止更新，保留原有引用文字；移动文献库后需要恢复绑定路径。著者—出版年模式会在当前文档内统一生成 `2020a / 2020b`，文中与文末使用同一后缀，原始年份不改。
+
+主程序快捷键：`Ctrl+2` 插入已选文献，`Ctrl+N` 新建文献，`Ctrl+S` 保存。右侧编辑当前条目，底部预览所选文献；预览中的年份消歧以当前选择为范围，Word 中以整篇文档为范围。
 
 WPS 走同一条插件登记，还没有在 WPS 里用过。
 
@@ -69,7 +82,7 @@ WPS 走同一条插件登记，还没有在 WPS 里用过。
 
 - `GB/T 7714`：顺序编码
 - `Author-Year`：著者-出版年，继承 GB/T 7714
-- `中山大学`、`北京大学`、`清华大学`：各自继承 GB/T 7714
+- `中山大学`、`北京大学`、`清华大学`：各自继承 GB/T 7714，当前为待校验模板，并非已核对各校规范
 
 ```json
 {
@@ -100,7 +113,7 @@ flowchart TD
 
 ## 运行
 
-安装 [.NET 9 桌面运行时](https://dotnet.microsoft.com/download/dotnet/9.0)，然后：
+安装 [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)，然后：
 
 ```powershell
 dotnet run --project src/AcNote.App
@@ -125,3 +138,12 @@ dotnet run --project src/AcNote.App
 [English](README.md)
 
 </div>
+
+## 开发验证
+
+```powershell
+dotnet build AcNote.sln -c Release
+dotnet test AcNote.sln -c Release
+```
+
+安装了桌面 Word 的 Windows 环境还可手动运行 `dotnet run --project tests/AcNote.Word.Smoke`。它创建自己的临时文档，验证分段、重复刷新、消歧、字体段落、多篇插入和引用移除；不属于默认单元测试。功能区点击和 WPS 兼容性需要另行验证。操作验收清单见 [TESTING.md](TESTING.md)。

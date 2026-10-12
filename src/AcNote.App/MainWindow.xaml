@@ -1,102 +1,93 @@
 <Window x:Class="AcNote.App.MainWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="AcNote"
-        Width="1180"
-        Height="760"
-        MinWidth="960"
-        MinHeight="640"
-        Background="#F4F1EB"
-        FontFamily="Microsoft YaHei UI"
-        FontSize="14">
-    <DockPanel>
-        <Border DockPanel.Dock="Top" Background="White" BorderBrush="#E4DFD6" BorderThickness="0,0,0,1" Padding="16,12">
-            <StackPanel>
-                <DockPanel>
-                    <TextBlock Text="AcNote" FontSize="20" FontWeight="SemiBold" Foreground="#0F5C5C" VerticalAlignment="Center" Margin="0,0,16,0"/>
-                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                        <Button Content="新建文献库" Click="NewLibrary_Click"/>
-                        <Button Content="打开文献库" Click="OpenLibrary_Click"/>
-                    </StackPanel>
-                    <TextBlock x:Name="LibraryName" VerticalAlignment="Center" Foreground="#5C676B" Text="尚未打开文献库"/>
-                </DockPanel>
-                <DockPanel Margin="0,10,0,0">
-                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                        <Button Content="新建文献" Click="New_Click"/>
-                        <Button Content="保存" Click="Save_Click" Style="{StaticResource AccentButton}"/>
-                        <Button Content="删除" Click="Delete_Click"/>
-                        <Button Content="导入 EndNote" Click="ImportEndNote_Click"/>
-                        <Button Content="编辑版式" Click="EditStyle_Click"/>
-                        <Button Content="导入版式" Click="ImportStyle_Click"/>
-                        <ComboBox x:Name="InsertFormCombo" Width="128" Margin="0,0,8,0" VerticalAlignment="Center" SelectedIndex="0">
-                            <ComboBoxItem Content="（作者，年）" Tag="parenthetical"/>
-                            <ComboBoxItem Content="作者（年）" Tag="narrative"/>
-                        </ComboBox>
-                        <Button Content="插入到 Word" Click="InsertWord_Click"/>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="版式" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="#5C676B"/>
-                        <ComboBox x:Name="StyleCombo" Width="220" Margin="0" DisplayMemberPath="DisplayName" SelectionChanged="StyleCombo_SelectionChanged"/>
-                    </StackPanel>
-                </DockPanel>
-            </StackPanel>
-        </Border>
-        <Border DockPanel.Dock="Bottom" Background="White" BorderBrush="#E4DFD6" BorderThickness="0,1,0,0" Padding="16,8">
-            <DockPanel>
-                <TextBlock x:Name="SummaryText" Foreground="#1E2A2E"/>
-                <TextBlock x:Name="WordStatusText" DockPanel.Dock="Right" Foreground="#5C676B" TextWrapping="Wrap" MaxWidth="640" TextAlignment="Right"/>
-            </DockPanel>
-        </Border>
-        <Grid Margin="16">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="340"/>
-                <ColumnDefinition Width="16"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            <DockPanel Grid.Column="0">
-                <TextBox x:Name="FilterBox" DockPanel.Dock="Top" Margin="0,0,0,10" TextChanged="FilterBox_TextChanged">
-                    <TextBox.Resources>
-                        <VisualBrush x:Key="Hint" TileMode="None" Opacity="0.45" Stretch="None" AlignmentX="Left">
-                            <VisualBrush.Visual>
-                                <TextBlock Text="搜索题名或作者" Margin="10,6,0,0" Foreground="#5C676B"/>
-                            </VisualBrush.Visual>
-                        </VisualBrush>
-                    </TextBox.Resources>
-                    <TextBox.Style>
-                        <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
-                            <Style.Triggers>
-                                <Trigger Property="Text" Value="">
-                                    <Setter Property="Background" Value="{StaticResource Hint}"/>
-                                </Trigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBox.Style>
-                </TextBox>
-                <ListBox x:Name="ReferenceList" Background="White" BorderBrush="#E4DFD6" SelectionChanged="ReferenceList_SelectionChanged">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <StackPanel Margin="2,4">
-                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                                <TextBlock Text="{Binding Meta}" Foreground="#5C676B" Margin="0,2,0,0"/>
-                                <TextBlock Text="{Binding MissingText}" Foreground="#9C3B2E" Margin="0,2,0,0" TextWrapping="Wrap">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Visibility" Value="Visible"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding HasMissing}" Value="False">
-                                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                            </StackPanel>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
-            </DockPanel>
-            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
-                <StackPanel MaxWidth="760" HorizontalAlignment="Left">
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ Title="AcNote" Icon="Assets/acnote.ico" Width="1440" Height="900" MinWidth="1100" MinHeight="700"
+ Background="#FFFFFF" FontFamily="Microsoft YaHei UI" FontSize="14" Foreground="#20364D">
+ <DockPanel>
+  <Border DockPanel.Dock="Top" Background="#203B53" Padding="22,14">
+   <DockPanel>
+    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Margin="0,0,28,0">
+     <Image Source="Assets/acnote.png" Width="32" Height="32" Margin="0,0,10,0"/>
+     <TextBlock Text="AcNote" FontSize="23" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center"/>
+    </StackPanel>
+    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+     <Button Content="新建文献库" Click="NewLibrary_Click"/><Button Content="打开文献库" Click="OpenLibrary_Click"/>
+    </StackPanel>
+    <TextBlock x:Name="LibraryName" Text="尚未打开文献库" Foreground="#CDDCE7" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+   </DockPanel>
+  </Border>
+  <Border DockPanel.Dock="Bottom" Background="#F5F8FB" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="18,9">
+   <DockPanel>
+    <TextBlock x:Name="WordStatusText" DockPanel.Dock="Right" MaxWidth="520" TextTrimming="CharacterEllipsis" Foreground="#718096"/>
+    <TextBlock x:Name="SummaryText" Foreground="#69788A"/>
+   </DockPanel>
+  </Border>
+  <Grid>
+   <Grid.ColumnDefinitions><ColumnDefinition Width="176"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+   <Border Background="#F5F8FB" BorderBrush="#E2E8F0" BorderThickness="0,0,1,0">
+    <DockPanel Margin="14,24">
+     <StackPanel DockPanel.Dock="Bottom">
+      <TextBlock Text="版式管理" Foreground="#718096" Margin="8,0,0,12"/>
+      <Button Content="编辑版式与字体" Click="EditStyle_Click" Margin="0,0,0,8"/>
+      <Button Content="导入版式" Click="ImportStyle_Click" Margin="0"/>
+     </StackPanel>
+     <StackPanel>
+      <TextBlock Text="我的文献库" FontWeight="SemiBold" FontSize="15" Margin="10,0,0,18"/>
+      <RadioButton Content="全部文献" Tag="all" GroupName="library" IsChecked="True" Click="FilterMode_Click" Style="{StaticResource NavigationItem}"/>
+      <RadioButton Content="待补全" Tag="missing" GroupName="library" Click="FilterMode_Click" Style="{StaticResource NavigationItem}"/>
+      <RadioButton Content="本次导入" Tag="recent" GroupName="library" Click="FilterMode_Click" Style="{StaticResource NavigationItem}"/>
+      <TextBlock Text="选择文献后，可直接&#10;插入 Word。&#10;&#10;按住 Ctrl 或 Shift&#10;可选择多条文献。" Foreground="#8190A1" Margin="10,28,0,0" LineHeight="23"/>
+     </StackPanel>
+    </DockPanel>
+   </Border>
+   <DockPanel Grid.Column="1">
+    <Border DockPanel.Dock="Top" Padding="18,14" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
+     <WrapPanel>
+      <Button Content="＋ 新建文献" Click="New_Click"/>
+      <Button Content="导入 EndNote" Click="ImportEndNote_Click"/>
+      <Button Content="插入选中文献" Click="InsertWord_Click" Style="{StaticResource AccentButton}"/>
+      <Button Content="更新引用" Click="UpdateWord_Click"/>
+      <ComboBox x:Name="InsertFormCombo" Width="132" Margin="4,0,0,0" SelectedIndex="0">
+       <ComboBoxItem Content="（作者，年）" Tag="parenthetical"/><ComboBoxItem Content="作者（年）" Tag="narrative"/>
+      </ComboBox>
+     </WrapPanel>
+    </Border>
+    <Border DockPanel.Dock="Bottom" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="20,14" Background="#FBFCFE" Height="190">
+     <DockPanel>
+      <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+       <ComboBox x:Name="StyleCombo" DockPanel.Dock="Right" Width="230" Margin="8,0,0,0" DisplayMemberPath="DisplayName" SelectionChanged="StyleCombo_SelectionChanged"/>
+       <TextBlock Text="参考文献预览" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/>
+      </DockPanel>
+      <TextBox x:Name="SelectionPreview" IsReadOnly="True" BorderThickness="0" Background="Transparent" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Padding="0" Margin="0"/>
+     </DockPanel>
+    </Border>
+    <Grid>
+     <Grid.ColumnDefinitions><ColumnDefinition Width="*" MinWidth="420"/><ColumnDefinition Width="5"/><ColumnDefinition Width="390" MinWidth="330"/></Grid.ColumnDefinitions>
+     <DockPanel Margin="18,16,14,12">
+      <TextBlock DockPanel.Dock="Top" Text="搜索题名、作者或刊名" Foreground="#718096" Margin="0,0,0,6"/>
+      <TextBox x:Name="FilterBox" DockPanel.Dock="Top" ToolTip="搜索题名、作者或刊名" TextChanged="FilterBox_TextChanged"/>
+      <TextBlock x:Name="SelectionText" DockPanel.Dock="Bottom" Text="选择文献" Foreground="#718096" Margin="0,12,0,0"/>
+      <DataGrid x:Name="ReferenceList" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended" SelectionUnit="FullRow" CanUserAddRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#EEF2F6" BorderThickness="0" Background="White" RowHeight="48" SelectionChanged="ReferenceList_SelectionChanged" PreviewMouseLeftButtonDown="ReferenceList_PreviewMouseLeftButtonDown">
+       <DataGrid.Resources><Style x:Key="TableText" TargetType="TextBlock"><Setter Property="VerticalAlignment" Value="Center"/><Setter Property="TextTrimming" Value="CharacterEllipsis"/><Setter Property="Margin" Value="6,0"/></Style></DataGrid.Resources>
+       <DataGrid.Columns>
+        <DataGridTemplateColumn Width="32">
+         <DataGridTemplateColumn.CellTemplate><DataTemplate><CheckBox Focusable="False" HorizontalAlignment="Center" VerticalAlignment="Center" IsChecked="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}, Mode=TwoWay}"/></DataTemplate></DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+        <DataGridTextColumn ElementStyle="{StaticResource TableText}" Header="作者" Binding="{Binding Authors}" Width="130"/>
+        <DataGridTextColumn ElementStyle="{StaticResource TableText}" Header="年份" Binding="{Binding Year}" Width="62"/>
+        <DataGridTextColumn ElementStyle="{StaticResource TableText}" Header="题名" Binding="{Binding Title}" Width="*" MinWidth="170"/>
+        <DataGridTextColumn ElementStyle="{StaticResource TableText}" Header="类型" Binding="{Binding Type}" Width="85"/>
+        <DataGridTextColumn ElementStyle="{StaticResource TableText}" Header="缺项" Binding="{Binding MissingText}" Width="100"/>
+       </DataGrid.Columns>
+      </DataGrid>
+     </DockPanel>
+     <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" Background="#EEF2F6"/>
+     <DockPanel Grid.Column="2" Margin="20,16,20,12">
+      <DockPanel DockPanel.Dock="Top" Margin="0,0,0,16">
+       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"><Button Content="保存" Click="Save_Click"/><Button Content="删除" Click="Delete_Click" Margin="0"/></StackPanel>
+       <TextBlock Text="文献信息" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+      </DockPanel>
+      <ScrollViewer x:Name="EditorScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel>
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -104,11 +95,11 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel>
-                            <TextBlock Text="文献类型" Foreground="#5C676B"/>
+                            <TextBlock Text="文献类型" Foreground="#69788A"/>
                             <ComboBox x:Name="TypeCombo" DisplayMemberPath="Label" SelectionChanged="Choice_Changed"/>
                         </StackPanel>
                         <StackPanel Grid.Column="2">
-                            <TextBlock Text="语种" Foreground="#5C676B"/>
+                            <TextBlock Text="语种" Foreground="#69788A"/>
                             <ComboBox x:Name="LanguageCombo" SelectionChanged="Choice_Changed">
                                 <ComboBoxItem Content="自动判断" Tag=""/>
                                 <ComboBoxItem Content="中文" Tag="zh"/>
@@ -116,11 +107,11 @@
                             </ComboBox>
                         </StackPanel>
                     </Grid>
-                    <TextBlock Text="题名" Foreground="#5C676B"/>
+                    <TextBlock Text="题名" Foreground="#69788A"/>
                     <TextBox x:Name="TitleBox" TextChanged="Field_Changed"/>
-                    <TextBlock Text="作者（每行一位；英文写作 Smith, John）" Foreground="#5C676B"/>
-                    <TextBox x:Name="AuthorsBox" AcceptsReturn="True" MinHeight="88" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" TextChanged="Field_Changed"/>
-                    <TextBlock x:Name="ContainerLabel" Text="刊名" Foreground="#5C676B"/>
+                    <TextBlock Text="作者（每行一位；英文写作 Smith, John）" Foreground="#69788A"/>
+                    <TextBox x:Name="AuthorsBox" AcceptsReturn="True" Height="80" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" TextChanged="Field_Changed"/>
+                    <TextBlock x:Name="ContainerLabel" Text="刊名" Foreground="#69788A"/>
                     <TextBox x:Name="ContainerBox" TextChanged="Field_Changed"/>
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -133,19 +124,19 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel>
-                            <TextBlock Text="年份" Foreground="#5C676B"/>
+                            <TextBlock Text="年份" Foreground="#69788A"/>
                             <TextBox x:Name="YearBox" TextChanged="Field_Changed"/>
                         </StackPanel>
                         <StackPanel Grid.Column="2">
-                            <TextBlock Text="卷号" Foreground="#5C676B"/>
+                            <TextBlock Text="卷号" Foreground="#69788A"/>
                             <TextBox x:Name="VolumeBox" TextChanged="Field_Changed"/>
                         </StackPanel>
                         <StackPanel Grid.Column="4">
-                            <TextBlock Text="期号" Foreground="#5C676B"/>
+                            <TextBlock Text="期号" Foreground="#69788A"/>
                             <TextBox x:Name="IssueBox" TextChanged="Field_Changed"/>
                         </StackPanel>
                         <StackPanel Grid.Column="6">
-                            <TextBlock Text="页码" Foreground="#5C676B"/>
+                            <TextBlock Text="页码" Foreground="#69788A"/>
                             <TextBox x:Name="PageBox" TextChanged="Field_Changed"/>
                         </StackPanel>
                     </Grid>
@@ -156,17 +147,17 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel>
-                            <TextBlock x:Name="PlaceLabel" Text="出版地" Foreground="#5C676B"/>
+                            <TextBlock x:Name="PlaceLabel" Text="出版地" Foreground="#69788A"/>
                             <TextBox x:Name="PlaceBox" TextChanged="Field_Changed"/>
                         </StackPanel>
                         <StackPanel Grid.Column="2">
-                            <TextBlock x:Name="PublisherLabel" Text="出版社" Foreground="#5C676B"/>
+                            <TextBlock x:Name="PublisherLabel" Text="出版社" Foreground="#69788A"/>
                             <TextBox x:Name="PublisherBox" TextChanged="Field_Changed"/>
                         </StackPanel>
                     </Grid>
-                    <TextBlock Text="DOI" Foreground="#5C676B"/>
+                    <TextBlock Text="DOI" Foreground="#69788A"/>
                     <TextBox x:Name="DoiBox" TextChanged="Field_Changed"/>
-                    <TextBlock Text="网址" Foreground="#5C676B"/>
+                    <TextBlock Text="网址" Foreground="#69788A"/>
                     <TextBox x:Name="UrlBox" TextChanged="Field_Changed"/>
                     <TextBlock Text="著录预览" FontWeight="SemiBold" Margin="0,8,0,8"/>
                     <TextBox x:Name="PreviewBox" IsReadOnly="True" TextWrapping="Wrap" MinHeight="72" Background="White"/>
@@ -186,8 +177,11 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                </StackPanel>
-            </ScrollViewer>
-        </Grid>
-    </DockPanel>
+
+      </StackPanel></ScrollViewer>
+     </DockPanel>
+    </Grid>
+   </DockPanel>
+  </Grid>
+ </DockPanel>
 </Window>

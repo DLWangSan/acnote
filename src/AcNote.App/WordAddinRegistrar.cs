@@ -1,4 +1,5 @@
 using System.Text;
+using System.Security.Cryptography;
 using Microsoft.Win32;
 
 namespace AcNote.App;
@@ -10,13 +11,28 @@ public static class WordAddinRegistrar
 
     public static string TryRegister()
     {
-        var comhost = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AcNote", "addin", "AcNote.WordAddin.comhost.dll");
+        var bundled = Path.Combine(AppContext.BaseDirectory, "addin");
+        var comhost = Path.Combine(bundled, "AcNote.WordAddin.comhost.dll");
         var appExe = Environment.ProcessPath ?? "";
         if (!File.Exists(comhost))
             return "未找到 Word 插件，功能区尚未登记。";
 
         try
         {
+            // Install each build in its own directory; Word may still hold an older build open.
+            var files = Directory.GetFiles(bundled, "*", SearchOption.AllDirectories).OrderBy(path => path, StringComparer.Ordinal).ToList();
+            using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            foreach (var file in files) hash.AppendData(File.ReadAllBytes(file));
+            var version = Convert.ToHexString(hash.GetHashAndReset())[..16];
+            var installed = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AcNote", "addin", version);
+            foreach (var file in files)
+            {
+                var destination = Path.Combine(installed, Path.GetRelativePath(bundled, file));
+                if (File.Exists(destination)) continue;
+                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                File.Copy(file, destination);
+            }
+            comhost = Path.Combine(installed, "AcNote.WordAddin.comhost.dll");
             var clsid = Clsid.ToString("B");
             WriteDefault($@"Software\Classes\CLSID\{clsid}", "AcNote.Connect");
             using (var key = Registry.CurrentUser.CreateSubKey($@"Software\Classes\CLSID\{clsid}\InprocServer32"))

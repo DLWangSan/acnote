@@ -14,12 +14,6 @@ public static class AppPaths
     public static void EnsureStyles(string bundledDirectory)
     {
         Directory.CreateDirectory(Styles);
-        foreach (var file in Directory.EnumerateFiles(Styles, "*.style"))
-        {
-            if (File.ReadAllText(file).Contains("sysu-thesis", StringComparison.Ordinal))
-                File.Delete(file);
-        }
-
         if (!Directory.Exists(bundledDirectory))
             return;
 

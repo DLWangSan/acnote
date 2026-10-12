@@ -15,6 +15,11 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<string> _missing = [];
     private bool _loading;
     private string? _shownId;
+    private string _filterMode = "all";
+    private readonly HashSet<string> _recentIds = [];
+    public List<string> SelectedIds => ReferenceList.Items.OfType<ReferenceRow>().Where(row => ReferenceList.SelectedItems.Contains(row)).Select(row => row.Id).ToList();
+    public string SelectedForm => (InsertFormCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? "parenthetical";
+
 
     public MainWindow(Session session)
     {
@@ -25,6 +30,21 @@ public partial class MainWindow : Window
         TypeCombo.ItemsSource = ReferenceTypes.All.Select(item => new TypeChoice(item.Id, item.Label)).ToList();
         FillStyleCombo();
         Reload(_session.Store?.List().FirstOrDefault()?.Id);
+        Closing += (_, _) => SaveShown();
+    }
+
+    protected override void OnPreviewKeyDown(System.Windows.Input.KeyEventArgs e)
+    {
+        if (System.Windows.Input.Keyboard.Modifiers == System.Windows.Input.ModifierKeys.Control)
+        {
+            switch (e.Key)
+            {
+                case System.Windows.Input.Key.D2: InsertWord_Click(this, new RoutedEventArgs()); e.Handled = true; break;
+                case System.Windows.Input.Key.S: Save_Click(this, new RoutedEventArgs()); e.Handled = true; break;
+                case System.Windows.Input.Key.N: New_Click(this, new RoutedEventArgs()); e.Handled = true; break;
+            }
+        }
+        base.OnPreviewKeyDown(e);
     }
 
     public void SetWordStatus(string text) => WordStatusText.Text = text;
@@ -45,6 +65,7 @@ public partial class MainWindow : Window
         Save(_shownId);
         UpdateLibraryTitle();
         _loading = true;
+        var selectedIds = SelectedIds.ToHashSet();
         _rows.Clear();
         if (_session.Store is not LibraryStore store)
         {
@@ -62,12 +83,17 @@ public partial class MainWindow : Window
             var missing = MissingFieldChecker.Check(item, style);
             if (missing.Count > 0)
                 missingCount++;
+            if (_filterMode == "missing" && missing.Count == 0) continue;
+            if (_filterMode == "recent" && !_recentIds.Contains(item.Id)) continue;
             if (!Matches(item, filter))
                 continue;
             _rows.Add(new ReferenceRow
             {
                 Id = item.Id,
                 Title = string.IsNullOrWhiteSpace(item.Title) ? "未命名" : item.Title,
+                Authors = AuthorFormatter.FormatList(item, style.EtAl),
+                Year = item.Year,
+                Type = ReferenceTypes.LabelOf(item.Type),
                 Meta = $"{item.Year}  {ReferenceTypes.LabelOf(item.Type)}".Trim(),
                 MissingText = missing.Count == 0 ? "" : "缺" + string.Join("、", missing),
                 HasMissing = missing.Count > 0,
@@ -77,7 +103,10 @@ public partial class MainWindow : Window
         var total = store.Count();
         SummaryText.Text = $"文献 {total} 条，其中 {missingCount} 条在当前版式下有缺项";
         ReferenceList.SelectedItem = _rows.FirstOrDefault(row => row.Id == selectId) ?? _rows.FirstOrDefault();
+        foreach (var row in _rows.Where(row => selectedIds.Contains(row.Id)))
+            if (!ReferenceList.SelectedItems.Contains(row)) ReferenceList.SelectedItems.Add(row);
         _loading = false;
+        UpdateSelectionPreview();
         if (ReferenceList.SelectedItem is ReferenceRow selected)
             Show(selected.Id);
         else
@@ -111,6 +140,7 @@ public partial class MainWindow : Window
         UpdateLabels();
         _loading = false;
         UpdatePreview();
+        EditorScroll.ScrollToTop();
     }
 
     private void ClearForm()
@@ -180,6 +210,7 @@ public partial class MainWindow : Window
             _missing.Add("缺" + missing);
         CompleteText.Visibility = formatted.Missing.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         UpdateLabels();
+        UpdateSelectionPreview();
     }
 
     private void UpdateLabels()
@@ -233,6 +264,7 @@ public partial class MainWindow : Window
     {
         if (_loading)
             return;
+        UpdateSelectionPreview();
         var next = (ReferenceList.SelectedItem as ReferenceRow)?.Id;
         if (next == _shownId)
             return;
@@ -253,18 +285,32 @@ public partial class MainWindow : Window
         var row = _rows.FirstOrDefault(candidate => candidate.Id == id);
         if (item is null || row is null)
             return;
-        var index = _rows.IndexOf(row);
         var missing = MissingFieldChecker.Check(item, _session.CurrentStyle);
-        _loading = true;
-        _rows[index] = new ReferenceRow
+        row.Title = string.IsNullOrWhiteSpace(item.Title) ? "未命名" : item.Title;
+        row.Authors = AuthorFormatter.FormatList(item, _session.CurrentStyle.EtAl);
+        row.Year = item.Year;
+        row.Type = ReferenceTypes.LabelOf(item.Type);
+        row.Meta = $"{item.Year}  {row.Type}";
+        row.MissingText = missing.Count == 0 ? "" : "缺" + string.Join("、", missing);
+        row.HasMissing = missing.Count > 0;
+        row.NotifyChanged();
+    }
+
+    private void ReferenceList_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        var source = e.OriginalSource as DependencyObject;
+        var onCheckbox = false;
+        DataGridRow? row = null;
+        while (source is not null)
         {
-            Id = item.Id,
-            Title = string.IsNullOrWhiteSpace(item.Title) ? "未命名" : item.Title,
-            Meta = $"{item.Year}  {ReferenceTypes.LabelOf(item.Type)}".Trim(),
-            MissingText = missing.Count == 0 ? "" : "缺" + string.Join("、", missing),
-            HasMissing = missing.Count > 0,
-        };
-        _loading = false;
+            if (source is CheckBox) onCheckbox = true;
+            if (source is DataGridRow found) { row = found; break; }
+            source = System.Windows.Media.VisualTreeHelper.GetParent(source);
+        }
+        if (!onCheckbox || row is null) return;
+        e.Handled = true;
+        row.IsSelected = !row.IsSelected;
+        UpdateSelectionPreview();
     }
 
     private void Field_Changed(object sender, TextChangedEventArgs e) => UpdatePreview();
@@ -312,6 +358,9 @@ public partial class MainWindow : Window
             var store = new LibraryStore(path);
             if (MessageBox.Show("放入几条经典文献作为示例？", "AcNote", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
                 SampleLibrary.Seed(store);
+            _shownId = null;
+            _recentIds.Clear();
+            ReferenceList.SelectedItems.Clear();
             _session.UseLibrary(store, path);
             Reload(store.List().FirstOrDefault()?.Id);
         }
@@ -335,6 +384,9 @@ public partial class MainWindow : Window
         {
             SaveShown();
             var store = new LibraryStore(dialog.FileName);
+            _shownId = null;
+            _recentIds.Clear();
+            ReferenceList.SelectedItems.Clear();
             _session.UseLibrary(store, dialog.FileName);
             Reload(store.List().FirstOrDefault()?.Id);
         }
@@ -352,7 +404,7 @@ public partial class MainWindow : Window
         var json = style.FilePath is not null && File.Exists(style.FilePath)
             ? File.ReadAllText(style.FilePath)
             : "";
-        var editor = new StyleEditorWindow(json) { Owner = this };
+        var editor = new StyleEditorWindow(json, style) { Owner = this };
         if (editor.ShowDialog() != true)
             return;
 
@@ -367,7 +419,7 @@ public partial class MainWindow : Window
             }
 
             Directory.CreateDirectory(AppPaths.Styles);
-            File.WriteAllText(Path.Combine(AppPaths.Styles, id + ".style"), editor.JsonText);
+            StyleCatalog.Install(editor.JsonText, AppPaths.Styles, Path.Combine(AppContext.BaseDirectory, "styles"));
             _session.ReloadStyles();
             _session.StyleId = id;
             FillStyleCombo();
@@ -435,11 +487,11 @@ public partial class MainWindow : Window
                 MessageBox.Show("请先新建或打开一个文献库。", "AcNote");
             return;
         }
-        if (MessageBox.Show("删除这条文献？", "AcNote", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)
+        if (MessageBox.Show($"删除选中的 {SelectedIds.Count} 条文献？", "AcNote", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)
             return;
-        var id = _shownId;
+        var ids = SelectedIds;
         _shownId = null;
-        store.Delete(id);
+        foreach (var id in ids) store.Delete(id);
         Reload(null);
     }
 
@@ -479,6 +531,7 @@ public partial class MainWindow : Window
                     updated++;
                 }
                 store.Save(item);
+                _recentIds.Add(item.Id);
             }
 
             Reload(_shownId);
@@ -503,11 +556,7 @@ public partial class MainWindow : Window
 
         try
         {
-            Directory.CreateDirectory(AppPaths.Styles);
-            var destination = Path.Combine(AppPaths.Styles, Path.GetFileName(dialog.FileName));
-            File.Copy(dialog.FileName, destination, overwrite: true);
-            using var json = System.Text.Json.JsonDocument.Parse(File.ReadAllText(destination));
-            var id = json.RootElement.TryGetProperty("id", out var property) ? property.GetString() : null;
+            var id = StyleCatalog.Install(File.ReadAllText(dialog.FileName), AppPaths.Styles, Path.Combine(AppContext.BaseDirectory, "styles"));
             _session.ReloadStyles();
             if (!string.IsNullOrWhiteSpace(id))
                 _session.StyleId = id;
@@ -521,14 +570,50 @@ public partial class MainWindow : Window
         }
     }
 
+    private void FilterMode_Click(object sender, RoutedEventArgs e)
+    {
+        _filterMode = (sender as RadioButton)?.Tag as string ?? "all";
+        if (IsLoaded) Reload(_shownId);
+    }
+
+    private void UpdateSelectionPreview()
+    {
+        if (SelectionText is null) return;
+        SelectionText.Text = $"已选择 {SelectedIds.Count} 条 · Ctrl / Shift 多选";
+        if (_session.Store is null) return;
+        var selected = SelectedIds.Select(id =>
+        {
+            if (id != _shownId) return _session.Store.Find(id);
+            var current = ReadForm(); current.Id = id; return current;
+        }).OfType<ReferenceItem>().ToList();
+        var years = YearDisambiguator.Resolve(selected, _session.CurrentStyle.CitationEtAl);
+        SelectionPreview.Text = string.Join(Environment.NewLine + Environment.NewLine, selected.Select((item, index) =>
+            (_session.CurrentStyle.Layout == "author-year" ? "" : $"[{index + 1}] ") +
+            BibliographyFormatter.Format(item, _session.CurrentStyle, _session.CurrentStyle.Layout == "author-year" ? years.GetValueOrDefault(item.Id) : null).Text));
+    }
+
+    private void UpdateWord_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            SaveShown();
+            if (_session.Store is null) return;
+            dynamic app = RunningWord.TryGet() ?? throw new InvalidOperationException("请先打开 Word。");
+            object document = app.ActiveDocument;
+            CitationDocument.BindLibrary(document, _session.LibraryPath!);
+            CitationDocument.Refresh(document, _session.Catalog.Get(CitationDocument.GetStyleId(document)), _session.Store.Find);
+        }
+        catch (Exception ex) { MessageBox.Show(this, ex.Message, "AcNote"); }
+    }
+
     private void InsertWord_Click(object sender, RoutedEventArgs e)
     {
         if (!EnsureLibrary())
             return;
         SaveShown();
-        if (_shownId is null || _session.Store is null)
+        if (SelectedIds.Count == 0 || _session.Store is null)
         {
-            MessageBox.Show("请先选择一条文献。", "AcNote");
+            MessageBox.Show("请先选择一条或多条文献。", "AcNote");
             return;
         }
 
@@ -547,7 +632,8 @@ public partial class MainWindow : Window
             var styleId = CitationDocument.GetStyleId(document);
             var style = _session.Catalog.Get(string.IsNullOrWhiteSpace(styleId) ? _session.StyleId : styleId);
             var form = (InsertFormCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? "parenthetical";
-            CitationDocument.InsertAndRefresh(document, selection, [_shownId], form, style, _session.Store.Find);
+            CitationDocument.BindLibrary(document, _session.LibraryPath!);
+            CitationDocument.InsertAndRefresh(document, selection, SelectedIds, form, style, _session.Store.Find);
         }
         catch (Exception ex)
         {
@@ -558,11 +644,16 @@ public partial class MainWindow : Window
 
 public sealed record TypeChoice(string Id, string Label);
 
-public sealed class ReferenceRow
+public sealed class ReferenceRow : System.ComponentModel.INotifyPropertyChanged
 {
-    public required string Id { get; init; }
-    public required string Title { get; init; }
-    public required string Meta { get; init; }
-    public required string MissingText { get; init; }
-    public required bool HasMissing { get; init; }
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+    public void NotifyChanged() => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(null));
+    public string Authors { get; set; } = "";
+    public string Year { get; set; } = "";
+    public string Type { get; set; } = "";
+    public required string Id { get; set; }
+    public required string Title { get; set; }
+    public required string Meta { get; set; }
+    public required string MissingText { get; set; }
+    public required bool HasMissing { get; set; }
 }

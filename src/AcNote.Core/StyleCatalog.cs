@@ -37,6 +37,7 @@ public sealed class EtAlRule
 
 public sealed class CitationStyle
 {
+    public TextLayout? Format { get; set; }
     public EtAlRule? EtAl { get; set; }
 }
 
@@ -56,6 +57,7 @@ public sealed class StyleFile
 
     public EtAlRule? EtAl { get; set; }
     public CitationStyle? Citation { get; set; }
+    public TextLayout? BibliographyFormat { get; set; }
     public Dictionary<string, List<StyleToken>>? Templates { get; set; }
     public Dictionary<string, List<string>>? Required { get; set; }
 }
@@ -75,7 +77,9 @@ public sealed class ResolvedStyle
     public Dictionary<string, List<StyleToken>> Templates { get; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, List<string>> Required { get; } = new(StringComparer.OrdinalIgnoreCase);
 
-    public string DisplayName => Name;
+    public TextLayout CitationFormat { get; } = new();
+    public TextLayout BibliographyFormat { get; } = new();
+    public string DisplayName => Status == "unverified" ? Name + "（待校验）" : Name;
 }
 
 public sealed class StyleCatalog
@@ -155,6 +159,28 @@ public sealed class StyleCatalog
         return new StyleCatalog(resolved);
     }
 
+    public static string Install(string json, string destination, params string?[] baseDirectories)
+    {
+        var style = JsonSerializer.Deserialize<StyleFile>(json, JsonOptions)
+            ?? throw new InvalidOperationException("版式文件为空。");
+        var id = style.Id;
+        if (string.IsNullOrWhiteSpace(id) || id is "." or ".." || id.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+            throw new InvalidOperationException("版式 id 不是有效的文件名。");
+        var temp = Directory.CreateTempSubdirectory("acnote-style-check-");
+        try
+        {
+            File.WriteAllText(Path.Combine(temp.FullName, id + ".style"), json);
+            Load([.. baseDirectories, destination, temp.FullName]);
+            Directory.CreateDirectory(destination);
+            var target = Path.Combine(destination, id + ".style");
+            var pending = target + ".pending";
+            File.WriteAllText(pending, json);
+            File.Move(pending, target, overwrite: true);
+            return id;
+        }
+        finally { temp.Delete(true); }
+    }
+
     public static ResolvedStyle Resolve(StyleFile leaf, IReadOnlyDictionary<string, StyleFile> all)
     {
         var chain = new List<StyleFile>();
@@ -193,6 +219,8 @@ public sealed class StyleCatalog
                 ApplyEtAl(result.EtAl, part.EtAl);
             if (part.Citation?.EtAl is not null)
                 ApplyEtAl(result.CitationEtAl, part.Citation.EtAl);
+            if (part.Citation?.Format is not null) result.CitationFormat.Merge(part.Citation.Format);
+            if (part.BibliographyFormat is not null) result.BibliographyFormat.Merge(part.BibliographyFormat);
             if (part.Templates is not null)
             {
                 foreach (var (type, tokens) in part.Templates)
@@ -214,6 +242,8 @@ public sealed class StyleCatalog
         result.FilePath = leaf.FilePath;
         if (string.IsNullOrWhiteSpace(result.Layout))
             result.Layout = "numeric";
+        result.CitationFormat.Validate();
+        result.BibliographyFormat.Validate();
         return result;
     }
 
@@ -223,9 +253,9 @@ public sealed class StyleCatalog
             target.MinCount = incoming.MinCount;
         if (incoming.UseFirst > 0)
             target.UseFirst = incoming.UseFirst;
-        if (!string.IsNullOrEmpty(incoming.Zh))
+        if (incoming.Zh is not null)
             target.Zh = incoming.Zh;
-        if (!string.IsNullOrEmpty(incoming.En))
+        if (incoming.En is not null)
             target.En = incoming.En;
     }
 }

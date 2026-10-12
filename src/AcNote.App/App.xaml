@@ -3,28 +3,48 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Startup="OnStartup">
     <Application.Resources>
-        <SolidColorBrush x:Key="Accent" Color="#0F5C5C"/>
+        <SolidColorBrush x:Key="Accent" Color="#008C95"/>
         <SolidColorBrush x:Key="Ink" Color="#1E2A2E"/>
         <Style TargetType="Button">
-            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+                <Border x:Name="Chrome" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="5" Padding="{TemplateBinding Padding}">
+                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Opacity" Value="0.8"/></Trigger>
+                    <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="#008C95"/></Trigger>
+                    <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Chrome" Property="Opacity" Value="0.4"/></Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
             <Setter Property="Margin" Value="0,0,8,0"/>
             <Setter Property="Background" Value="White"/>
-            <Setter Property="BorderBrush" Value="#D5D0C8"/>
+            <Setter Property="BorderBrush" Value="#DCE3EB"/>
             <Setter Property="Foreground" Value="#1E2A2E"/>
         </Style>
         <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="Background" Value="#0F5C5C"/>
+            <Setter Property="Background" Value="#008C95"/>
             <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderBrush" Value="#0F5C5C"/>
+            <Setter Property="BorderBrush" Value="#008C95"/>
         </Style>
         <Style TargetType="TextBox">
             <Setter Property="Padding" Value="8,6"/>
             <Setter Property="Margin" Value="0,0,0,10"/>
-            <Setter Property="BorderBrush" Value="#D5D0C8"/>
+            <Setter Property="BorderBrush" Value="#DCE3EB"/>
         </Style>
         <Style TargetType="ComboBox">
             <Setter Property="Padding" Value="8,6"/>
             <Setter Property="Margin" Value="0,0,0,10"/>
         </Style>
+        <Style x:Key="NavigationItem" TargetType="RadioButton">
+            <Setter Property="Margin" Value="0,0,0,6"/><Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="RadioButton">
+                <Border x:Name="Nav" Padding="12,12" CornerRadius="5" Background="Transparent"><ContentPresenter/></Border>
+                <ControlTemplate.Triggers><Trigger Property="IsChecked" Value="True"><Setter TargetName="Nav" Property="Background" Value="#DDF1F3"/><Setter Property="Foreground" Value="#007B83"/><Setter Property="FontWeight" Value="SemiBold"/></Trigger></ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style TargetType="DataGridColumnHeader"><Setter Property="Background" Value="#F5F8FB"/><Setter Property="Foreground" Value="#65758A"/><Setter Property="Padding" Value="8,12"/><Setter Property="BorderThickness" Value="0"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
+        <Style TargetType="DataGridCell"><Setter Property="BorderThickness" Value="0"/><Setter Property="Padding" Value="8,4"/><Setter Property="VerticalContentAlignment" Value="Center"/><Style.Triggers><Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#DFF1F6"/><Setter Property="Foreground" Value="#20364D"/></Trigger></Style.Triggers></Style>
     </Application.Resources>
 </Application>

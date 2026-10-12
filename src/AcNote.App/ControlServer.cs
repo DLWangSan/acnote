@@ -84,9 +84,10 @@ public sealed class ControlServer : IDisposable
                     _window.WindowState = System.Windows.WindowState.Normal;
                     return "{\"ok\":true}";
                 }),
-                "pick" => OnUi(() => Pick(form)),
+                "selected" => OnUi(() => Selected(form)),
+                "pick" => OnUi(() => Pick(form, document.RootElement.TryGetProperty("ids", out var ids) ? ids.EnumerateArray().Select(id => id.GetString() ?? "").ToList() : [])),
                 "choose-style" => OnUi(ChooseStyle),
-                "edit-style" => OnUi(EditStyle),
+                "edit-style" => OnUi(() => EditStyle(document.RootElement.TryGetProperty("styleId", out var style) ? style.GetString() : null)),
                 _ => Fail("未知命令"),
             };
         }
@@ -96,19 +97,28 @@ public sealed class ControlServer : IDisposable
         }
     }
 
-    private string Pick(string? form)
+    private string Selected(string? form)
+    {
+        _window.SaveShown();
+        var ids = _window.SelectedIds;
+        if (ids.Count == 0) return Fail("请先在 AcNote 中选择文献（支持 Ctrl / Shift 多选），或使用“查找并插入”。");
+        return JsonSerializer.Serialize(new { ok = true, ids, styleId = _session.StyleId, form = form ?? _window.SelectedForm, libraryPath = _session.LibraryPath });
+    }
+
+    private string Pick(string? form, IReadOnlyList<string> ids)
     {
         if (_session.Store is null)
             return Fail("请先在 AcNote 里打开一个文献库。");
         _window.SaveShown();
-        var dialog = new PickerWindow(_session, form == "narrative" ? "narrative" : "parenthetical") { Owner = _window };
+        var dialog = new PickerWindow(_session, form == "narrative" ? "narrative" : "parenthetical", ids) { Owner = _window };
         if (dialog.ShowDialog() != true)
             return "{\"ok\":false,\"cancelled\":true}";
-        return JsonSerializer.Serialize(new { ok = true, ids = dialog.SelectedIds, styleId = _session.StyleId, form = dialog.SelectedForm });
+        return JsonSerializer.Serialize(new { ok = true, ids = dialog.SelectedIds, styleId = _session.StyleId, form = dialog.SelectedForm, libraryPath = _session.LibraryPath });
     }
 
-    private string EditStyle()
+    private string EditStyle(string? styleId)
     {
+        if (!string.IsNullOrWhiteSpace(styleId)) _session.StyleId = _session.Catalog.Get(styleId).Id;
         _window.EditCurrentStyle();
         return "{\"ok\":true}";
     }

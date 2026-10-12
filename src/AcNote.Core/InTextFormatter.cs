@@ -2,7 +2,7 @@ namespace AcNote.Core;
 
 public static class InTextFormatter
 {
-    public static string Format(IEnumerable<ReferenceItem?> items, EtAlRule? rule = null, bool narrative = false)
+    public static string Format(IEnumerable<ReferenceItem?> items, EtAlRule? rule = null, bool narrative = false, IReadOnlyDictionary<string, string>? years = null)
     {
         rule ??= EtAlRule.CitationDefault();
         var list = items.ToList();
@@ -19,7 +19,7 @@ public static class InTextFormatter
                 continue;
             }
 
-            var text = Piece(item, rule, narrative, chinese);
+            var text = Piece(item, rule, narrative, chinese, years);
             if (text.Length > 0)
                 parts.Add(text);
         }
@@ -37,10 +37,10 @@ public static class InTextFormatter
 
     public static string SortKey(ReferenceItem item) => CiteNames(item, EtAlRule.CitationDefault());
 
-    private static string Piece(ReferenceItem item, EtAlRule rule, bool narrative, bool chinese)
+    private static string Piece(ReferenceItem item, EtAlRule rule, bool narrative, bool chinese, IReadOnlyDictionary<string, string>? years)
     {
         var names = CiteNames(item, rule);
-        var year = item.Year.Trim();
+        var year = years?.GetValueOrDefault(item.Id) ?? item.Year.Trim();
         if (narrative)
         {
             if (names.Length == 0)
@@ -59,6 +59,8 @@ public static class InTextFormatter
 
     private static string YearOnly(string year, bool chinese) =>
         year.Length == 0 ? "" : chinese ? $"（{year}）" : $"({year})";
+
+    public static string AuthorLabel(ReferenceItem item, EtAlRule rule) => CiteNames(item, rule);
 
     private static string CiteNames(ReferenceItem item, EtAlRule rule)
     {

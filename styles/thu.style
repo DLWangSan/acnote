@@ -2,5 +2,6 @@
   "id": "thu",
   "name": "清华大学",
   "extends": "gb-t-7714-2015-numeric",
-  "group": "university"
+  "group": "university",
+  "status": "unverified"
 }

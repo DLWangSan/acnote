@@ -159,7 +159,7 @@ public sealed class LibraryStore
 
     private SqliteConnection Open()
     {
-        var connection = new SqliteConnection($"Data Source={_path}");
+        var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = _path }.ToString());
         connection.Open();
         using var pragma = connection.CreateCommand();
         pragma.CommandText = "PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL;";

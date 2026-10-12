@@ -9,7 +9,7 @@ public sealed class PickerWindow : Window
     private readonly ListBox _list = new() { SelectionMode = SelectionMode.Extended };
     private readonly RadioButton _narrative;
 
-    public PickerWindow(Session session, string form = "parenthetical")
+    public PickerWindow(Session session, string form = "parenthetical", IReadOnlyList<string>? selectedIds = null)
     {
         Title = "AcNote 插入引用";
         Width = 680;
@@ -17,7 +17,7 @@ public sealed class PickerWindow : Window
         MinWidth = 480;
         MinHeight = 360;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(244, 241, 235));
+        Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(247, 249, 252));
         FontFamily = new System.Windows.Media.FontFamily("Microsoft YaHei UI");
         FontSize = 14;
 
@@ -80,12 +80,20 @@ public sealed class PickerWindow : Window
             _list.Items.Add(new PickRow(
                 item.Id,
                 string.IsNullOrWhiteSpace(item.Title) ? "未命名" : item.Title,
-                $"{item.Year}  {ReferenceTypes.LabelOf(item.Type)}".Trim(),
+                $"{AuthorFormatter.FormatList(item, style.EtAl)} · {item.Year} · {ReferenceTypes.LabelOf(item.Type)}".Trim(),
                 missing.Count == 0 ? "" : "缺" + string.Join("、", missing)));
         }
 
+        foreach (PickRow row in _list.Items)
+            if (selectedIds?.Contains(row.Id) == true) _list.SelectedItems.Add(row);
+        var search = new TextBox { Margin = new Thickness(0, 0, 0, 12), ToolTip = "搜索题名、作者或年份" };
+        var view = System.Windows.Data.CollectionViewSource.GetDefaultView(_list.Items);
+        search.TextChanged += (_, _) => view.Filter = value => value is PickRow row &&
+            (row.Title + " " + row.Meta).Contains(search.Text.Trim(), StringComparison.CurrentCultureIgnoreCase);
+        DockPanel.SetDock(search, Dock.Top);
         _list.ItemTemplate = CreateTemplate();
         root.Children.Add(hint);
+        root.Children.Add(search);
         root.Children.Add(buttons);
         root.Children.Add(forms);
         root.Children.Add(_list);
