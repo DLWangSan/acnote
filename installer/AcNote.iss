@@ -1,5 +1,5 @@
 #ifndef AppVersion
-  #define AppVersion "0.1.0"
+  #define AppVersion "0.1.1"
 #endif
 #ifndef PublishDir
   #define PublishDir "..\artifacts\publish"
@@ -57,12 +57,34 @@ Filename: "{app}\AcNote.App.exe"; Parameters: "--unregister"; Flags: runhidden w
 
 [Code]
 function HasDesktopRuntime: Boolean;
-var Versions: TArrayOfString; I: Integer;
+var Versions: TArrayOfString; I: Integer; RuntimeRoot, VersionPath: String; FindRec: TFindRec;
 begin
   Result := False;
-  if RegGetSubkeyNames(HKLM64, 'SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.WindowsDesktop.App', Versions) then
+  if RegGetSubkeyNames(HKLM64, 'SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.WindowsDesktop.App', Versions) or
+     RegGetSubkeyNames(HKLM32, 'SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.WindowsDesktop.App', Versions) then
     for I := 0 to GetArrayLength(Versions) - 1 do
       if Pos('10.0.', Versions[I]) = 1 then Result := True;
+  if Result then Exit;
+
+  { The .NET installer can complete successfully even when the sharedfx
+    registry key is absent or registered in the other registry view. Check
+    the actual x64 runtime files as the authoritative fallback. }
+  RuntimeRoot := ExpandConstant('{pf64}\dotnet\shared\Microsoft.WindowsDesktop.App');
+  if DirExists(RuntimeRoot) then
+  begin
+    if FindFirst(RuntimeRoot + '\10.0.*', FindRec) then
+    begin
+      try
+        repeat
+          VersionPath := FindRec.Name;
+          if (Pos('10.0.', VersionPath) = 1) and DirExists(RuntimeRoot + '\' + VersionPath) then
+            Result := True;
+        until not FindNext(FindRec);
+      finally
+        FindClose(FindRec);
+      end;
+    end;
+  end;
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
@@ -81,6 +103,6 @@ begin
   else if (Code <> 0) and (Code <> 3010) then
     Result := 'The .NET Desktop Runtime installation failed. Error: ' + IntToStr(Code)
   else if not HasDesktopRuntime then
-    Result := 'The required .NET Desktop Runtime was not detected. Please restart Windows and retry.'
-  else NeedsRestart := Code = 3010;
+    Result := '运行环境安装程序已结束，但仍未找到 .NET 10 Desktop Runtime。请关闭此窗口，重新运行运行环境安装包；无需先重启 Windows。'
+  else NeedsRestart := False;
 end;

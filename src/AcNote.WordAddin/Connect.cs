@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Text;
 using AcNote.Core;
 using AcNote.Word;
+using AcNote.Import.EndNote;
 using Microsoft.Win32;
 
 namespace AcNote.WordAddin;
@@ -23,6 +24,7 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
                 <group id="grpCitations" label="引用">
                   <button id="btnInsertSelected" label="插入已选文献" size="large" imageMso="CitationInsert" screentip="插入主程序中已选的文献" supertip="在 AcNote 文献库中选择一篇或多篇文献，返回 Word 后点击这里直接插入，无需再次选择。" onAction="OnInsertCitation"/>
                   <button id="btnFind" label="查找并插入" size="large" imageMso="FindDialog" onAction="OnFindCitation"/>
+                  <button id="btnConvertEndNote" label="存为 AcNote 版副本" size="large" imageMso="FileSaveAs" supertip="保留原文档，在同目录创建 AcNote 副本并转换可读取的 EndNote 引用。" onAction="OnConvertEndNoteCopy"/>
                   <button id="btnEdit" label="编辑引用" imageMso="SourceManager" onAction="OnEditCitation"/>
                   <button id="btnRemove" label="移除此处引用" imageMso="Delete" onAction="OnRemoveCitation"/>
                   <menu id="mInsert" label="引用形式" imageMso="CitationInsert">
@@ -162,6 +164,139 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
     public void OnOpenApp(object control) => Guard(() => Ask("{\"cmd\":\"activate\"}"));
 
     public void OnOpenGithub(object control) => Guard(() => Process.Start(new ProcessStartInfo("https://github.com/DLWangSan/acnote") { UseShellExecute = true }));
+
+    public void OnConvertEndNoteCopy(object control) => Guard(ConvertEndNoteCopy);
+
+    private void ConvertEndNoteCopy()
+    {
+        var (source, _) = Active();
+        dynamic app = _application!;
+        dynamic original = source;
+        var sourcePath = (string)original.FullName;
+        if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
+            throw new InvalidOperationException("请先保存原 Word 文档，再创建 AcNote 副本。");
+
+        var fields = new List<(int Start, int End, string Code, bool IsBibliography)>();
+        var travelingXml = new StringBuilder();
+        dynamic wordFields = original.Fields;
+        for (var i = 1; i <= (int)wordFields.Count; i++)
+        {
+            dynamic field = wordFields[i];
+            var code = (string)field.Code.Text;
+            var upper = code.TrimStart().ToUpperInvariant();
+            var isCite = upper.StartsWith("ADDIN EN.CITE ", StringComparison.Ordinal) || upper.StartsWith("ADDIN EN.CITE\r", StringComparison.Ordinal);
+            var isData = upper.StartsWith("ADDIN EN.CITE.DATA", StringComparison.Ordinal);
+            var isBibliography = upper.StartsWith("ADDIN EN.REFLIST", StringComparison.Ordinal);
+            if (isCite || isData) travelingXml.AppendLine(System.Net.WebUtility.HtmlDecode(code));
+            if (isCite || isBibliography)
+                fields.Add(((int)field.Result.Start, (int)field.Result.End, code, isBibliography));
+        }
+
+        var imported = EndNoteImporter.ImportTravelingLibrary(travelingXml.ToString());
+        var byRec = imported.Items
+            .Where(item => item.SourceKey.StartsWith("endnote-xml:", StringComparison.Ordinal))
+            .GroupBy(item => item.SourceKey["endnote-xml:".Length..])
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        var citationRecords = fields.Where(field => !field.IsBibliography).SelectMany(field => RecordNumbers(field.Code)).Distinct(StringComparer.Ordinal).ToArray();
+        if (byRec.Count == 0 || citationRecords.Any(record => !byRec.ContainsKey(record)))
+        {
+            using var picker = new OpenFileDialog { Title = "选择对应的 EndNote 文献库（.enl / .enlx / XML）", Filter = "EndNote 文献库|*.enl;*.enlx;*.xml|所有文件|*.*" };
+            if (picker.ShowDialog() != DialogResult.OK) return;
+            var fromLibrary = EndNoteImporter.Import(picker.FileName);
+            imported.Items.AddRange(fromLibrary.Items);
+            imported.Warnings.AddRange(fromLibrary.Warnings);
+            foreach (var record in fromLibrary.Items
+                .Where(item => item.SourceKey.StartsWith("endnote-xml:", StringComparison.Ordinal) || item.SourceKey.StartsWith("endnote-enl:", StringComparison.Ordinal))
+                )
+            {
+                var key = record.SourceKey[(record.SourceKey.IndexOf(':') + 1)..];
+                byRec[key] = record;
+            }
+            imported.Items.Clear();
+            imported.Items.AddRange(byRec.Values);
+        }
+        if (imported.Items.Count == 0) throw new InvalidDataException("没有从文档或所选 EndNote 库中读取到文献记录。");
+        var missingRecords = citationRecords.Where(record => !byRec.ContainsKey(record)).ToArray();
+        if (missingRecords.Length > 0)
+            throw new InvalidDataException("仍有文中引文无法匹配到文献记录编号：" + string.Join(", ", missingRecords) + "。请确认选择的 EndNote 库与本文档对应。");
+
+        var suffix = "-AcNote";
+        var directory = Path.GetDirectoryName(sourcePath)!;
+        var stem = Path.GetFileNameWithoutExtension(sourcePath);
+        var extension = Path.GetExtension(sourcePath);
+        var copyPath = Path.Combine(directory, stem + suffix + extension);
+        var libraryPath = Path.Combine(directory, Path.GetFileNameWithoutExtension(copyPath) + ".acnote");
+        for (var n = 2; File.Exists(copyPath) || File.Exists(libraryPath); n++)
+        {
+            copyPath = Path.Combine(directory, stem + suffix + " (" + n + ")" + extension);
+            libraryPath = Path.Combine(directory, Path.GetFileNameWithoutExtension(copyPath) + ".acnote");
+        }
+        var store = new LibraryStore(libraryPath);
+        var ids = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var item in imported.Items)
+        {
+            var key = item.SourceKey[(item.SourceKey.IndexOf(':') + 1)..];
+            if (store.FindBySource(item.SourceKey) is { } existing) { ids[key] = existing.Id; continue; }
+            store.Save(item);
+            ids[key] = item.Id;
+        }
+
+        original.SaveCopyAs(copyPath);
+        dynamic converted = app.Documents.Open(copyPath, ReadOnly: false, AddToRecentFiles: true);
+        try
+        {
+            // Process from the end so field removal cannot shift the remaining Word ranges.
+            foreach (var entry in fields.OrderByDescending(field => field.Start))
+            {
+                if (entry.IsBibliography)
+                {
+                    dynamic bibliographyFields = converted.Fields;
+                    for (var j = (int)bibliographyFields.Count; j >= 1; j--)
+                    {
+                        dynamic f = bibliographyFields[j];
+                        if (((string)f.Code.Text).TrimStart().StartsWith("ADDIN EN.REFLIST", StringComparison.OrdinalIgnoreCase))
+                        { f.Result.Text = ""; f.Unlink(); }
+                    }
+                    continue;
+                }
+                var recs = RecordNumbers(entry.Code);
+                if (recs.Count == 0) throw new InvalidDataException("文档中存在未格式化的 EndNote 引用，且没有可读取的记录编号。请选择对应的 .enl 文献库后重试。");
+                var citeIds = recs.Where(ids.ContainsKey).Select(key => ids[key]).ToList();
+                if (citeIds.Count != recs.Count) throw new InvalidDataException("有 EndNote 引文无法与嵌入记录对应。请确认选择了原始 .enl 文献库。");
+                dynamic range = converted.Range(entry.Start, entry.End);
+                var fieldRange = range;
+                // Unlink leaves the rendered citation text in the document; replace only its field wrapper.
+                dynamic matchField = null!;
+                for (var j = (int)converted.Fields.Count; j >= 1; j--)
+                {
+                    dynamic f = converted.Fields[j];
+                    if ((int)f.Result.Start == entry.Start && ((string)f.Code.Text).TrimStart().StartsWith("ADDIN EN.CITE", StringComparison.OrdinalIgnoreCase)) { matchField = f; break; }
+                }
+                if (matchField is null) continue;
+                matchField.Unlink();
+                dynamic control = converted.ContentControls.Add(0, fieldRange);
+                CitationDocument.PrepareForConversion(control, CitationDocument.BuildTag("parenthetical", citeIds));
+            }
+            CitationDocument.BindLibrary(converted, libraryPath);
+            CitationDocument.SetStyleId(converted, Catalog().All.FirstOrDefault()?.Id ?? "");
+            CitationDocument.Refresh(converted, Catalog().Get(CitationDocument.GetStyleId(converted)), LookupFor(converted));
+            converted.Save();
+        }
+        catch
+        {
+            try { converted.Close(SaveChanges: false); } catch { }
+            try { File.Delete(copyPath); } catch { }
+            try { File.Delete(libraryPath); } catch { }
+            throw;
+        }
+        Dialogs.Info($"已创建 AcNote 副本：\n{copyPath}\n\n已导入 {store.Count()} 条文献记录。原文件保持不变。\n\n若原 EndNote 库含有文中未引用的其他记录，它们不包含在 Word 文档里；需要完整迁移时请另行导入 .enl 文献库。");
+    }
+
+    private static List<string> RecordNumbers(string fieldCode) =>
+        System.Text.RegularExpressions.Regex.Matches(System.Net.WebUtility.HtmlDecode(fieldCode),
+                "<rec-number>(.*?)</rec-number>", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Singleline)
+            .Select(match => System.Text.RegularExpressions.Regex.Replace(match.Groups[1].Value, "<[^>]+>", "").Trim())
+            .Where(value => value.Length > 0).Distinct(StringComparer.Ordinal).ToList();
 
     public void OnConvertNarrative(object control) => ConvertCitation("narrative");
     public void OnConvertParenthetical(object control) => ConvertCitation("author-year");
@@ -453,6 +588,9 @@ public interface IDTExtensibility2
 
     [DispId(27)]
     void OnOpenGithub(object control);
+
+    [DispId(28)]
+    void OnConvertEndNoteCopy(object control);
 
     [DispId(17)]
     void OnEditStyle(object control);

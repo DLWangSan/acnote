@@ -90,4 +90,19 @@ public class EndNoteImporterTests
         var error = Assert.Throws<InvalidDataException>(() => EndNoteImporter.Import(path));
         Assert.Contains("EndNote XML", error.Message);
     }
+
+    [Fact]
+    public void TravelingLibraryFragment_ImportsEmbeddedCitationRecord()
+    {
+        const string fieldCode = "ADDIN EN.CITE <EndNote><Cite><Author>Wang</Author><Year>2020</Year><RecNum>15</RecNum><record><rec-number>15</rec-number><ref-type name=\"Journal Article\">17</ref-type><contributors><authors><author>Wang, San</author></authors></contributors><titles><title>Embedded paper</title><secondary-title>Journal</secondary-title></titles><dates><year>2020</year></dates><electronic-resource-num>10.1234/demo</electronic-resource-num></record></Cite></EndNote>";
+
+        var result = EndNoteImporter.ImportTravelingLibrary(fieldCode);
+
+        var item = Assert.Single(result.Items);
+        Assert.Equal("endnote-xml:15", item.SourceKey);
+        Assert.Equal("Embedded paper", item.Title);
+        Assert.Equal("2020", item.Year);
+        Assert.Equal("10.1234/demo", item.Doi);
+        Assert.Equal("Wang", item.Authors[0].Family);
+    }
 }

@@ -56,6 +56,31 @@ public static class EndNoteImporter
         return ReadLibrary(path);
     }
 
+    public static ImportResult ImportTravelingLibrary(string xml)
+    {
+        if (string.IsNullOrWhiteSpace(xml)) return new ImportResult();
+        var result = new ImportResult();
+        // EndNote stores one or more XML records inside Word field codes. Those
+        // fragments are not necessarily a complete XML export, so parse each
+        // record independently and reuse the normal EndNote XML field mapping.
+        foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(
+                     xml, "<record\\b[\\s\\S]*?</record>", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+        {
+            try
+            {
+                var record = XElement.Parse(match.Value);
+                var parsed = ReadXmlDocument(new XDocument(new XElement("xml", new XElement("records", record))));
+                result.Items.AddRange(parsed.Items);
+                result.Warnings.AddRange(parsed.Warnings);
+            }
+            catch (System.Xml.XmlException)
+            {
+                // Ignore non-XML text around the embedded EndNote traveling data.
+            }
+        }
+        return result;
+    }
+
     private static ImportResult ReadCompressed(string path)
     {
         var temp = Directory.CreateTempSubdirectory("acnote-enlx-");
@@ -217,8 +242,12 @@ public static class EndNoteImporter
 
     private static ImportResult ReadXml(string path)
     {
+        return ReadXmlDocument(XDocument.Load(path));
+    }
+
+    private static ImportResult ReadXmlDocument(XDocument document)
+    {
         var result = new ImportResult();
-        var document = XDocument.Load(path);
         var records = document.Descendants().Where(element => element.Name.LocalName == "record");
         var index = 0;
         foreach (var record in records)

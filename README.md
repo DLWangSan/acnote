@@ -53,6 +53,7 @@ Run AcNote once, save your documents, then **close every Word window and reopen 
 
 - **插入已选文献 / Insert selected references** inserts the desktop library selection directly, without reopening a picker. Checkboxes and Ctrl / Shift support multiple references.
 - **查找并插入 / Find and insert** opens the searchable picker.
+- **存为 AcNote 版副本 / Save as AcNote copy** converts EndNote citations in a new document beside the original and leaves the source file untouched. Formatted EndNote documents usually carry a Traveling Library with the references cited in that document; if records or citation numbers are missing, the add-in asks for the matching `.enl`, `.enlx`, or EndNote XML file. Uncited references from the original EndNote library are not stored in the Word document and require importing that library separately.
 - **编辑引用 / Edit citation** restores the existing selection. **移除此处引用 / Remove citation** removes that occurrence and renumbers the document.
 - **更新引用和列表 / Update citations and bibliography** refreshes the document. Use the adjacent style dropdown to switch styles.
 - **字体、段落与版式 / Fonts, paragraphs and style** configures citation and bibliography fonts, sizes and superscript, plus bibliography line spacing, paragraph spacing, hanging indent and alignment.
@@ -68,6 +69,8 @@ The add-in now uses the base CustomUI namespace supported by both Word and WPS, 
 ### Import
 
 EndNote X9.3 and later `.enl` libraries, compressed `.enlx` libraries, and EndNote XML can be imported. The original library is only read. Older EndNote libraries need an EndNote XML export.
+
+The Word ribbon's **存为 AcNote 版副本** command creates a sibling file named `原文件名-AcNote.docx` (or preserves the source document's extension) and a matching `.acnote` library. Existing files are not overwritten; a numbered suffix is added when needed.
 
 ## Libraries and styles
 

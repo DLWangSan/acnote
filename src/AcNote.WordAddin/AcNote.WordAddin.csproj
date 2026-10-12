@@ -12,6 +12,7 @@
   <ItemGroup>
     <ProjectReference Include="..\AcNote.Core\AcNote.Core.csproj" />
     <ProjectReference Include="..\AcNote.Word\AcNote.Word.csproj" />
+    <ProjectReference Include="..\AcNote.Import.EndNote\AcNote.Import.EndNote.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="..\..\styles\*.style" Link="styles\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />

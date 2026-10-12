@@ -210,6 +210,12 @@ public static class CitationDocument
     public static string BuildTag(string form, IReadOnlyList<string> ids) =>
         CitePrefix + (form == "narrative" ? "n" : form == "author-year" ? "a" : "p") + "|" + string.Join(';', ids.Distinct());
 
+    public static void PrepareForConversion(object contentControl, string tag)
+    {
+        dynamic control = contentControl;
+        Prepare(control, tag);
+    }
+
     public static bool IsCitationTag(string tag) =>
         tag.StartsWith(CitePrefix, StringComparison.Ordinal);
 
