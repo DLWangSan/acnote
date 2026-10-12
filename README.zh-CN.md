@@ -8,7 +8,7 @@
 
 用来管理文献、套用可共享的版式，并在 Word 里更新引用。中文作者列表用「等」，英文用 et al.，不另建一套作者字段。
 
-[English](README.md) · [能做什么](#能做什么) · [文献库和版式](#文献库和版式) · [运行](#运行)
+[GitHub 项目主页](https://github.com/DLWangSan/acnote) · [下载与更新](https://github.com/DLWangSan/acnote/releases) · [English](README.md) · [能做什么](#能做什么) · [文献库和版式](#文献库和版式) · [运行](#运行)
 
 ![Focus](https://img.shields.io/badge/focus-citation%20formatting-3949ab?style=flat-square)
 ![Languages](https://img.shields.io/badge/languages-English%20%2B%20Chinese-00897b?style=flat-square)
@@ -64,7 +64,7 @@ Author-Year 的文中引用用姓：`(袁隆平, 1966)`、`(Watson and Crick, 19
 
 主程序快捷键：`Ctrl+2` 插入已选文献，`Ctrl+N` 新建文献，`Ctrl+S` 保存。右侧编辑当前条目，底部预览所选文献；预览中的年份消歧以当前选择为范围，Word 中以整篇文档为范围。
 
-WPS 走同一条插件登记，还没有在 WPS 里用过。
+插件使用 Word 与 WPS 都支持的 CustomUI 基础命名空间，并登记 WPS COM 加载项白名单。安装或更新后，请完全退出并重开 WPS Writer；若仍未显示，请在 WPS 的 COM 加载项管理中检查 AcNote 是否启用。WPS 不同版本对第三方 COM 加载项的策略可能不同，本版本尚未在你的 WPS 环境中实测。
 
 ### 导入
 
@@ -113,13 +113,15 @@ flowchart TD
 
 ## 运行
 
-安装 [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)，然后：
+普通用户请从 [GitHub Releases](https://github.com/DLWangSan/acnote/releases) 下载 Windows x64 安装包。安装程序会先检查 .NET 10 Desktop Runtime；缺少时会提示并启动微软签名的 Runtime 安装程序，完成后继续安装 AcNote。Release 也会单独附上 Runtime 安装程序及 SHA-256 校验文件，方便离线部署。当前版本要求 64 位 Windows。
+
+从源码运行请安装 [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)，然后：
 
 ```powershell
 dotnet run --project src/AcNote.App
 ```
 
-第一次运行会把自带版式复制到 `%AppData%\AcNote\styles`，并登记 Word 功能区。之后请重新打开 Word。在工具栏里新建或打开 `.acnote` 文献库。新建时可以选择放入经典示例。
+第一次运行会把自带版式复制到 `%AppData%\AcNote\styles`，并登记 Word/WPS 功能区。之后请重启对应的文字处理程序。在工具栏里新建或打开 `.acnote` 文献库。
 
 ## 参与
 

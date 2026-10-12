@@ -8,7 +8,7 @@
 
 A reference manager organized around citation styles: Chinese and English author lists, shared style files, and citations that can be updated in Word.
 
-[简体中文](README.zh-CN.md) · [What it does](#what-it-does) · [Libraries and styles](#libraries-and-styles) · [Running it](#running-it)
+[GitHub project](https://github.com/DLWangSan/acnote) · [Downloads and updates](https://github.com/DLWangSan/acnote/releases) · [简体中文](README.zh-CN.md) · [What it does](#what-it-does) · [Libraries and styles](#libraries-and-styles) · [Running it](#running-it)
 
 ![Focus](https://img.shields.io/badge/focus-citation%20formatting-3949ab?style=flat-square)
 ![Languages](https://img.shields.io/badge/languages-English%20%2B%20Chinese-00897b?style=flat-square)
@@ -63,7 +63,7 @@ Documents remember the library path and style. Refresh uses that bound library e
 
 Desktop shortcuts: `Ctrl+2` inserts selected references, `Ctrl+N` creates a record, and `Ctrl+S` saves. The bottom preview covers selected records; Word resolves year collisions across all references cited in the document.
 
-WPS uses the same add-in registration. It has not been tried in WPS yet.
+The add-in now uses the base CustomUI namespace supported by both Word and WPS, and registers the WPS COM add-in whitelist entry. Fully exit and reopen WPS Writer after installation or upgrade. If the tab is still missing, check that AcNote is enabled in WPS COM Add-ins. Third-party COM add-in policies can vary by WPS version, and this build has not yet been tested in your WPS environment.
 
 ### Import
 
@@ -112,13 +112,15 @@ People formatting a thesis or a paper against a specific style, especially when 
 
 ## Running it
 
-Install the [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0), then:
+For normal use, download the Windows x64 installer from [GitHub Releases](https://github.com/DLWangSan/acnote/releases). Setup checks for the .NET 10 Desktop Runtime first. If it is missing, setup explains the requirement and launches Microsoft's signed runtime installer before continuing. Releases also include the standalone runtime installer and SHA-256 checksums for offline deployment. AcNote currently requires 64-bit Windows.
+
+To run from source, install the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0), then:
 
 ```powershell
 dotnet run --project src/AcNote.App
 ```
 
-The first launch copies built-in styles into `%AppData%\AcNote\styles` and registers the Word ribbon. Restart Word after that. Create or open an `.acnote` library from the toolbar. A new library can start with the classic sample records.
+The first launch copies built-in styles into `%AppData%\AcNote\styles` and registers the Word/WPS ribbon. Restart the relevant word processor after that. Create or open an `.acnote` library from the toolbar.
 
 ## Contributing
 

@@ -16,7 +16,7 @@ namespace AcNote.WordAddin;
 public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
 {
     private const string Ribbon = """
-        <customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui" onLoad="OnRibbonLoad">
+        <customUI xmlns="http://schemas.microsoft.com/office/2006/01/customui" onLoad="OnRibbonLoad">
           <ribbon>
             <tabs>
               <tab id="tabAcNote" label="AcNote">
@@ -35,6 +35,7 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
                 </group>
                 <group id="grpLibrary" label="文献库">
                   <button id="btnOpen" label="转到 AcNote" imageMso="FileOpen" size="large" onAction="OnOpenApp"/>
+                  <button id="btnGithub" label="GitHub 项目" imageMso="HyperlinkInsert" onAction="OnOpenGithub"/>
                 </group>
                 <group id="grpBibliography" label="参考文献">
                   <button id="btnUpdate" label="更新引用和列表" size="large" imageMso="Refresh" supertip="按文中首次出现顺序重新编号，同时更新参考文献列表。" onAction="OnUpdateCitations"/>
@@ -159,6 +160,8 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
     });
 
     public void OnOpenApp(object control) => Guard(() => Ask("{\"cmd\":\"activate\"}"));
+
+    public void OnOpenGithub(object control) => Guard(() => Process.Start(new ProcessStartInfo("https://github.com/DLWangSan/acnote") { UseShellExecute = true }));
 
     public void OnConvertNarrative(object control) => ConvertCitation("narrative");
     public void OnConvertParenthetical(object control) => ConvertCitation("author-year");
@@ -447,6 +450,9 @@ public interface IDTExtensibility2
 
     [DispId(16)]
     void OnOpenApp(object control);
+
+    [DispId(27)]
+    void OnOpenGithub(object control);
 
     [DispId(17)]
     void OnEditStyle(object control);

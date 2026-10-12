@@ -60,7 +60,7 @@ function HasDesktopRuntime: Boolean;
 var Versions: TArrayOfString; I: Integer;
 begin
   Result := False;
-  if RegGetValueNames(HKLM64, 'SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.WindowsDesktop.App', Versions) then
+  if RegGetSubkeyNames(HKLM64, 'SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.WindowsDesktop.App', Versions) then
     for I := 0 to GetArrayLength(Versions) - 1 do
       if Pos('10.0.', Versions[I]) = 1 then Result := True;
 end;
@@ -70,8 +70,13 @@ var Code: Integer;
 begin
   Result := '';
   if HasDesktopRuntime then Exit;
+  if MsgBox('AcNote 需要 Microsoft .NET 10 Desktop Runtime 才能运行。现在将启动微软签名的运行环境安装程序；完成后 AcNote 安装会自动继续。是否继续？', mbConfirmation, MB_YESNO) <> IDYES then
+  begin
+    Result := '请先安装 .NET 10 Desktop Runtime，然后重新运行 AcNote 安装程序。';
+    Exit;
+  end;
   ExtractTemporaryFile('windowsdesktop-runtime-win-x64.exe');
-  if not ShellExec('runas', ExpandConstant('{tmp}\windowsdesktop-runtime-win-x64.exe'), '/install /quiet /norestart', '', SW_HIDE, ewWaitUntilTerminated, Code) then
+  if not ShellExec('runas', ExpandConstant('{tmp}\windowsdesktop-runtime-win-x64.exe'), '/install /norestart', '', SW_SHOWNORMAL, ewWaitUntilTerminated, Code) then
     Result := 'AcNote requires .NET 10 Desktop Runtime. Please allow its installation and retry.'
   else if (Code <> 0) and (Code <> 3010) then
     Result := 'The .NET Desktop Runtime installation failed. Error: ' + IntToStr(Code)

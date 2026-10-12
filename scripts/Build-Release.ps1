@@ -2,6 +2,7 @@ param(
     [string]$Version = '0.1.0',
     [string]$DotNet = 'dotnet',
     [string]$Iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+    [string]$RuntimeInstaller = '',
     [string]$UpdateSource = '',
     [string]$DownloadBase = 'https://github.com/DLWangSan/acnote/releases/download'
 )
@@ -22,7 +23,7 @@ if (Test-Path -LiteralPath $publish) {
     }
     Remove-Item -LiteralPath $resolvedPublish -Recurse -Force
 }
-& $DotNet publish (Join-Path $releaseRoot 'src\AcNote.App\AcNote.App.csproj') -c Release -r win-x64 --self-contained false -p:Version=$Version -o $publish
+& $DotNet publish (Join-Path $releaseRoot 'src\AcNote.App\AcNote.App.csproj') -c Release -r win-x64 --self-contained false -m:1 -p:Version=$Version -o $publish
 if ($LASTEXITCODE -ne 0) { throw 'dotnet publish failed' }
 # The COM add-in is framework dependent and its build output must accompany the app.
 Copy-Item (Join-Path $releaseRoot 'src\AcNote.WordAddin\bin\Release\net10.0-windows\win-x64') (Join-Path $publish 'addin') -Recurse
@@ -34,19 +35,26 @@ if ($UpdateSource) {
     if (-not $UpdateSource.StartsWith('https://')) { throw 'UpdateSource must use HTTPS' }
     @{ source=$UpdateSource } | ConvertTo-Json | Set-Content (Join-Path $publish 'updates.json') -Encoding utf8
 }
-$metadata = Invoke-RestMethod 'https://builds.dotnet.microsoft.com/dotnet/release-metadata/10.0/releases.json'
-$runtime = $metadata.releases[0].windowsdesktop.files | Where-Object { $_.rid -eq 'win-x64' -and $_.name -like '*.exe' } | Select-Object -First 1
-$runtimePath = Join-Path $cache 'windowsdesktop-runtime-win-x64.exe'
-if (-not (Test-Path $runtimePath) -or (Get-FileHash $runtimePath -Algorithm SHA512).Hash -ne $runtime.hash) {
-    Invoke-WebRequest $runtime.url -OutFile $runtimePath
+if ($RuntimeInstaller) {
+    $runtimePath = (Resolve-Path -LiteralPath $RuntimeInstaller).Path
+} else {
+    $metadata = Invoke-RestMethod 'https://builds.dotnet.microsoft.com/dotnet/release-metadata/10.0/releases.json'
+    $runtime = $metadata.releases[0].windowsdesktop.files | Where-Object { $_.rid -eq 'win-x64' -and $_.name -like '*.exe' } | Select-Object -First 1
+    $runtimePath = Join-Path $cache 'windowsdesktop-runtime-win-x64.exe'
+    if (-not (Test-Path $runtimePath) -or (Get-FileHash $runtimePath -Algorithm SHA512).Hash -ne $runtime.hash) {
+        Invoke-WebRequest $runtime.url -OutFile $runtimePath
+    }
+    if ((Get-FileHash $runtimePath -Algorithm SHA512).Hash -ne $runtime.hash) { throw 'Runtime checksum mismatch' }
 }
-if ((Get-FileHash $runtimePath -Algorithm SHA512).Hash -ne $runtime.hash) { throw 'Runtime checksum mismatch' }
 if ((Get-AuthenticodeSignature $runtimePath).Status -ne 'Valid') { throw 'Invalid runtime signature' }
+if ((Get-Item $runtimePath).VersionInfo.ProductVersion -notlike '10.0.*') { throw 'The supplied installer is not .NET 10 Desktop Runtime' }
+Copy-Item -LiteralPath $runtimePath -Destination (Join-Path $output 'windowsdesktop-runtime-win-x64.exe') -Force
 & $Iscc "/DAppVersion=$Version" "/DPublishDir=$publish" "/DRuntimeInstaller=$runtimePath" "/DOutputPath=$output" (Join-Path $releaseRoot 'installer\AcNote.iss')
 if ($LASTEXITCODE -ne 0) { throw 'Installer compilation failed' }
 $name = "AcNote-Setup-$Version-win-x64.exe"
 $hash = (Get-FileHash (Join-Path $output $name) -Algorithm SHA256).Hash.ToLowerInvariant()
-"$hash  $name" | Set-Content (Join-Path $output 'SHA256SUMS.txt') -Encoding ascii
+$runtimeHash = (Get-FileHash (Join-Path $output 'windowsdesktop-runtime-win-x64.exe') -Algorithm SHA256).Hash.ToLowerInvariant()
+"$hash  $name", "$runtimeHash  windowsdesktop-runtime-win-x64.exe" | Set-Content (Join-Path $output 'SHA256SUMS.txt') -Encoding ascii
 @{ version=$Version; downloadUrl="$($DownloadBase.TrimEnd('/'))/v$Version/$name"; sha256=$hash; notes="AcNote $Version" } |
     ConvertTo-Json | Set-Content (Join-Path $output 'latest.json') -Encoding utf8
 Write-Output "Release files: $output"

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using AcNote.Core;
@@ -49,6 +50,8 @@ public partial class MainWindow : Window
 
     public void SetWordStatus(string text) => WordStatusText.Text = text;
     private void CheckUpdates_Click(object sender, RoutedEventArgs e) => new UpdateWindow { Owner = this }.ShowDialog();
+
+    private void OpenGithub_Click(object sender, RoutedEventArgs e) => Process.Start(new ProcessStartInfo("https://github.com/DLWangSan/acnote") { UseShellExecute = true });
 
     public void SaveShown() => Save(_shownId);
 
