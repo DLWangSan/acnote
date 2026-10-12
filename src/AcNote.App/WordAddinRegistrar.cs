@@ -1,5 +1,6 @@
 using System.Text;
 using System.Security.Cryptography;
+using AcNote.Core;
 using Microsoft.Win32;
 
 namespace AcNote.App;
@@ -90,12 +91,26 @@ public static class WordAddinRegistrar
             }
 
             ClearStartupMark();
-            return "Word 功能区已登记。重新打开 Word 后，选项卡显示 AcNote。";
+            var success = "Word 功能区已登记。重新打开 Word 后，选项卡显示 AcNote。";
+            WriteRegistrationLog(success + Environment.NewLine + "AppPath=" + appExe + Environment.NewLine + "ComHostPath=" + comhost);
+            return success;
         }
         catch (Exception ex)
         {
-            return "Word 功能区登记失败：" + ex.Message;
+            var failure = "Word 功能区登记失败：" + ex.Message;
+            WriteRegistrationLog(failure + Environment.NewLine + "AppPath=" + appExe + Environment.NewLine + "ComHostPath=" + comhost);
+            return failure;
         }
+    }
+
+    private static void WriteRegistrationLog(string message)
+    {
+        try
+        {
+            Directory.CreateDirectory(AppPaths.Root);
+            File.WriteAllText(Path.Combine(AppPaths.Root, "word-registration.log"), DateTime.Now.ToString("s") + Environment.NewLine + message);
+        }
+        catch { /* Diagnostics must never prevent startup or registration. */ }
     }
 
     private static void ClearStartupMark()

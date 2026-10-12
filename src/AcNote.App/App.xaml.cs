@@ -24,11 +24,14 @@ public partial class App : Application
         if (e.Args.Contains("--register-word", StringComparer.OrdinalIgnoreCase))
         {
             var status = WordAddinRegistrar.TryRegister();
-            Directory.CreateDirectory(AppPaths.Root);
-            File.WriteAllText(Path.Combine(AppPaths.Root, "word-registration.log"), status);
             Shutdown(status.Contains("已登记", StringComparison.Ordinal) ? 0 : 1);
             return;
         }
+
+        // Registration must happen before the single-instance handoff. Otherwise
+        // an older/debug AcNote process can receive activation while Office keeps
+        // pointing at the add-in DLL from that older build.
+        var wordStatus = WordAddinRegistrar.TryRegister();
 
         var createdNew = false;
         try
@@ -76,7 +79,7 @@ public partial class App : Application
             var window = new MainWindow(session);
             MainWindow = window;
             window.Show();
-            window.SetWordStatus(WordAddinRegistrar.TryRegister());
+            window.SetWordStatus(wordStatus);
             _server = new ControlServer(session, window);
             _server.Start();
             var incoming = e.Args.Where(a => !a.StartsWith("--")).Select(Path.GetFullPath).ToArray();

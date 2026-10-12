@@ -1,5 +1,5 @@
 #ifndef AppVersion
-  #define AppVersion "0.1.1"
+  #define AppVersion "0.1.2"
 #endif
 #ifndef PublishDir
   #define PublishDir "..\artifacts\publish"
@@ -49,7 +49,6 @@ Name: "{userprograms}\AcNote"; Filename: "{app}\AcNote.App.exe"
 Name: "{userdesktop}\AcNote"; Filename: "{app}\AcNote.App.exe"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\AcNote.App.exe"; Parameters: "--register-word"; Flags: runhidden waituntilterminated
 Filename: "{app}\AcNote.App.exe"; Description: "Launch AcNote"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
@@ -105,4 +104,16 @@ begin
   else if not HasDesktopRuntime then
     Result := '运行环境安装程序已结束，但仍未找到 .NET 10 Desktop Runtime。请关闭此窗口，重新运行运行环境安装包；无需先重启 Windows。'
   else NeedsRestart := False;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var ResultCode: Integer;
+begin
+  if CurStep = ssPostInstall then
+  begin
+    if not Exec(ExpandConstant('{app}\AcNote.App.exe'), '--register-word', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+      MsgBox('AcNote 已安装，但 Word/WPS 插件注册程序未能启动。请从开始菜单启动 AcNote，然后重新打开 Word/WPS。', mbError, MB_OK)
+    else if ResultCode <> 0 then
+      MsgBox('AcNote 已安装，但 Word/WPS 插件登记失败。请查看 %AppData%\AcNote\word-registration.log，或启动 AcNote 后重试。', mbError, MB_OK);
+  end;
 end;
