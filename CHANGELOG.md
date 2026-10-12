@@ -1,5 +1,12 @@
 # 更新记录
 
+## 0.1.4
+
+- 为 32 位 WPS 同时打包 x86 COM 插件，使用 32 位注册表视图登记 WPS 白名单和 COM 类；保留 64 位 Word/WPS 插件。
+- 安装器分别检测并安装缺少的 .NET 10 x64/x86 Desktop Runtime，无需重启 Windows。
+- 插件注册成功后回读核验两个 COM 视图，日志记录 x64 与 x86 插件实际路径。
+- Debug 版不会覆盖有效安装版的 Word/WPS 插件注册。
+
 ## 2026-10-12
 
 - 首版升级至 .NET 10 LTS 与 Microsoft.Data.Sqlite 10.0.12，面向公开发布继续获得平台安全更新，并消除旧 SQLite 原生依赖的高危公告。

@@ -1,6 +1,6 @@
 # AcNote Windows release
 
-The first public package uses per-user installation under `%LOCALAPPDATA%\Programs\AcNote`; the installer registers AcNote for Word and offers `.acnote`, EndNote, BibTeX, RIS, CSL JSON, and SQLite files in Windows “Open with”. It does not change another application's default file association. The installer adds a Start menu shortcut and optionally a desktop shortcut.
+The per-user installer registers AcNote for Word/WPS, includes both x64 and x86 COM add-ins, and offers `.acnote`, EndNote, BibTeX, RIS, CSL JSON, and SQLite files in Windows “Open with”. It does not change another application's default file association. The installer adds a Start menu shortcut and optionally a desktop shortcut, and installs any missing .NET 10 x64/x86 Desktop Runtime.
 
 ## Build locally
 
@@ -14,7 +14,7 @@ The output is `artifacts/0.1.0/AcNote-Setup-0.1.0-win-x64.exe`, `SHA256SUMS.txt`
 
 To point packaged installations to a static mirror manifest, pass `-UpdateSource https://downloads.example.org/acnote/latest.json` and set `-DownloadBase` to the corresponding file host before publishing. The manifest contains `version`, `downloadUrl`, `sha256`, and `notes`. No server-side database or dynamic API is needed. The app's update window can also store a per-user HTTPS source override.
 
-The default checker reads the GitHub Releases API. A GitHub Release must include the exact asset name `AcNote-Setup-<version>-win-x64.exe`. Releases also attach the Microsoft-signed .NET Desktop Runtime installer and SHA-256 checksums. Downloads are opened in the browser; AcNote does not silently replace running files.
+The default checker reads the GitHub Releases API. A GitHub Release must include the exact asset name `AcNote-Setup-<version>-win-x64.exe`. Releases also attach the Microsoft-signed x64 and x86 .NET Desktop Runtime installers and SHA-256 checksums. Downloads are opened in the browser; AcNote does not silently replace running files.
 
 ## Publish from a tag
 

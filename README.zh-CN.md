@@ -64,7 +64,7 @@ Author-Year 的文中引用用姓：`(袁隆平, 1966)`、`(Watson and Crick, 19
 
 主程序快捷键：`Ctrl+2` 插入已选文献，`Ctrl+N` 新建文献，`Ctrl+S` 保存。右侧编辑当前条目，底部预览所选文献；预览中的年份消歧以当前选择为范围，Word 中以整篇文档为范围。
 
-插件使用 Word 与 WPS 都支持的 CustomUI 基础命名空间，并登记 WPS COM 加载项白名单。安装或更新后，请完全退出并重开 WPS Writer；若仍未显示，请在 WPS 的 COM 加载项管理中检查 AcNote 是否启用。WPS 不同版本对第三方 COM 加载项的策略可能不同，本版本尚未在你的 WPS 环境中实测。
+插件使用 Word 与 WPS 都支持的 CustomUI 基础命名空间。安装包同时包含 64 位和 32 位 COM 插件，并分别登记对应的 Office/WPS 注册表视图；安装器会补齐缺少的 .NET 10 x64/x86 Desktop Runtime。安装或更新后，请保存文档并完全退出所有 Word 与 WPS 进程后再重开，Office 只会在启动时加载插件。若仍未显示，可检查 `%AppData%\AcNote\word-registration.log` 中的实际 COM 路径。
 
 ### 导入
 

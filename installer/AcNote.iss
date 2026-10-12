@@ -1,11 +1,14 @@
 #ifndef AppVersion
-  #define AppVersion "0.1.3"
+  #define AppVersion "0.1.4"
 #endif
 #ifndef PublishDir
   #define PublishDir "..\artifacts\publish"
 #endif
 #ifndef RuntimeInstaller
   #define RuntimeInstaller "..\.tmp\packaging\windowsdesktop-runtime-win-x64.exe"
+#endif
+#ifndef RuntimeInstallerX86
+  #define RuntimeInstallerX86 "..\.tmp\packaging\windowsdesktop-runtime-win-x86.exe"
 #endif
 #ifndef OutputPath
   #define OutputPath "..\artifacts"
@@ -40,6 +43,7 @@ ChangesAssociations=yes
 [Files]
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#RuntimeInstaller}"; DestName: "windowsdesktop-runtime-win-x64.exe"; Flags: dontcopy
+Source: "{#RuntimeInstallerX86}"; DestName: "windowsdesktop-runtime-win-x86.exe"; Flags: dontcopy
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; Flags: unchecked
@@ -55,12 +59,11 @@ Filename: "{app}\AcNote.App.exe"; Description: "Launch AcNote"; Flags: nowait po
 Filename: "{app}\AcNote.App.exe"; Parameters: "--unregister"; Flags: runhidden waituntilterminated; RunOnceId: "UnregisterAcNote"
 
 [Code]
-function HasDesktopRuntime: Boolean;
+function HasDesktopRuntimeX64: Boolean;
 var Versions: TArrayOfString; I: Integer; RuntimeRoot, VersionPath: String; FindRec: TFindRec;
 begin
   Result := False;
-  if RegGetSubkeyNames(HKLM64, 'SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.WindowsDesktop.App', Versions) or
-     RegGetSubkeyNames(HKLM32, 'SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.WindowsDesktop.App', Versions) then
+  if RegGetSubkeyNames(HKLM64, 'SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.WindowsDesktop.App', Versions) then
     for I := 0 to GetArrayLength(Versions) - 1 do
       if Pos('10.0.', Versions[I]) = 1 then Result := True;
   if Result then Exit;
@@ -86,24 +89,61 @@ begin
   end;
 end;
 
+function HasDesktopRuntimeX86: Boolean;
+var Versions: TArrayOfString; I: Integer; RuntimeRoot, VersionPath: String; FindRec: TFindRec;
+begin
+  Result := False;
+  if RegGetSubkeyNames(HKLM32, 'SOFTWARE\dotnet\Setup\InstalledVersions\x86\sharedfx\Microsoft.WindowsDesktop.App', Versions) then
+    for I := 0 to GetArrayLength(Versions) - 1 do
+      if Pos('10.0.', Versions[I]) = 1 then Result := True;
+  if Result then Exit;
+  RuntimeRoot := ExpandConstant('{pf32}\dotnet\shared\Microsoft.WindowsDesktop.App');
+  if DirExists(RuntimeRoot) and FindFirst(RuntimeRoot + '\10.0.*', FindRec) then
+  begin
+    try
+      repeat
+        VersionPath := FindRec.Name;
+        if (Pos('10.0.', VersionPath) = 1) and DirExists(RuntimeRoot + '\' + VersionPath) then
+          Result := True;
+      until not FindNext(FindRec);
+    finally
+      FindClose(FindRec);
+    end;
+  end;
+end;
+
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var Code: Integer;
 begin
   Result := '';
-  if HasDesktopRuntime then Exit;
-  if MsgBox('AcNote 需要 Microsoft .NET 10 Desktop Runtime 才能运行。现在将启动微软签名的运行环境安装程序；完成后 AcNote 安装会自动继续。是否继续？', mbConfirmation, MB_YESNO) <> IDYES then
+  if HasDesktopRuntimeX64 and HasDesktopRuntimeX86 then Exit;
+  if MsgBox('AcNote 需要 Microsoft .NET 10 Desktop Runtime（x64 和 x86），以支持 64 位 Word 和 32 位 WPS。现在将安装缺少的微软签名运行环境；无需重启，完成后 AcNote 安装会自动继续。是否继续？', mbConfirmation, MB_YESNO) <> IDYES then
   begin
     Result := '请先安装 .NET 10 Desktop Runtime，然后重新运行 AcNote 安装程序。';
     Exit;
   end;
-  ExtractTemporaryFile('windowsdesktop-runtime-win-x64.exe');
-  if not ShellExec('runas', ExpandConstant('{tmp}\windowsdesktop-runtime-win-x64.exe'), '/install /norestart', '', SW_SHOWNORMAL, ewWaitUntilTerminated, Code) then
-    Result := 'AcNote requires .NET 10 Desktop Runtime. Please allow its installation and retry.'
-  else if (Code <> 0) and (Code <> 3010) then
-    Result := 'The .NET Desktop Runtime installation failed. Error: ' + IntToStr(Code)
-  else if not HasDesktopRuntime then
-    Result := '运行环境安装程序已结束，但仍未找到 .NET 10 Desktop Runtime。请关闭此窗口，重新运行运行环境安装包；无需先重启 Windows。'
-  else NeedsRestart := False;
+  if not HasDesktopRuntimeX64 then
+  begin
+    ExtractTemporaryFile('windowsdesktop-runtime-win-x64.exe');
+    if not ShellExec('runas', ExpandConstant('{tmp}\windowsdesktop-runtime-win-x64.exe'), '/install /norestart', '', SW_SHOWNORMAL, ewWaitUntilTerminated, Code) then
+      Result := '无法启动 .NET 10 x64 Desktop Runtime 安装程序。'
+    else if (Code <> 0) and (Code <> 3010) then
+      Result := '.NET 10 x64 Desktop Runtime 安装失败，错误码：' + IntToStr(Code)
+    else if not HasDesktopRuntimeX64 then
+      Result := '安装程序结束后仍未找到 .NET 10 x64 Desktop Runtime。请重试，无需先重启 Windows。';
+    if Result <> '' then Exit;
+  end;
+  if not HasDesktopRuntimeX86 then
+  begin
+    ExtractTemporaryFile('windowsdesktop-runtime-win-x86.exe');
+    if not ShellExec('runas', ExpandConstant('{tmp}\windowsdesktop-runtime-win-x86.exe'), '/install /norestart', '', SW_SHOWNORMAL, ewWaitUntilTerminated, Code) then
+      Result := '无法启动 .NET 10 x86 Desktop Runtime 安装程序。'
+    else if (Code <> 0) and (Code <> 3010) then
+      Result := '.NET 10 x86 Desktop Runtime 安装失败，错误码：' + IntToStr(Code)
+    else if not HasDesktopRuntimeX86 then
+      Result := '安装程序结束后仍未找到 .NET 10 x86 Desktop Runtime。请重试，无需先重启 Windows。';
+  end;
+  NeedsRestart := False;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
