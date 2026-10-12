@@ -85,20 +85,24 @@ public class DocumentRefreshTests
     }
 
     [Fact]
-    public void LocalNarrativeWorksWithNumericStyleAndCanBeRestored()
+    public void StyleSwitchOverridesDisplayAndRestoresStoredNarrativeChoice()
     {
         var doc = new TestDocument();
         var cite = doc.ContentControls.Add(CitationDocument.BuildTag("narrative", ["a"]), 0);
         doc.ContentControls.Add(CitationDocument.BibliographyTag, 100);
-        CitationDocument.Refresh(doc, new(), id => Paper(id, id));
+        var authorYear = new ResolvedStyle { Layout = "author-year" };
+        CitationDocument.Refresh(doc, authorYear, id => Paper(id, id));
         Assert.Equal("Smith (2020)", cite.Range.Text);
         Assert.False(cite.LockContents);
-        cite.Tag = CitationDocument.BuildTag("author-year", ["a"]);
-        CitationDocument.Refresh(doc, new(), id => Paper(id, id));
-        Assert.Equal("(Smith, 2020)", cite.Range.Text);
-        cite.Tag = CitationDocument.BuildTag("parenthetical", ["a"]);
         CitationDocument.Refresh(doc, new(), id => Paper(id, id));
         Assert.Equal("[1]", cite.Range.Text);
+        CitationDocument.Refresh(doc, authorYear, id => Paper(id, id));
+        Assert.Equal("Smith (2020)", cite.Range.Text);
+        cite.Tag = CitationDocument.BuildTag("author-year", ["a"]);
+        CitationDocument.Refresh(doc, new(), id => Paper(id, id));
+        Assert.Equal("[1]", cite.Range.Text);
+        CitationDocument.Refresh(doc, authorYear, id => Paper(id, id));
+        Assert.Equal("(Smith, 2020)", cite.Range.Text);
     }
 
     [Fact]
@@ -135,7 +139,7 @@ public class DocumentRefreshTests
         var selection = new TestSelection();
         selection.Range.ContentControls.Items.Add(cite);
         Assert.True(CitationDocument.SelectionIsCitation(selection));
-        CitationDocument.ReplaceSelectedAndRefresh(doc, selection, ["a"], "narrative", new(), id => Paper(id, id));
+        CitationDocument.ReplaceSelectedAndRefresh(doc, selection, ["a"], "narrative", new() { Layout = "author-year" }, id => Paper(id, id));
         Assert.Equal("Smith (2020)", cite.Range.Text);
     }
 
@@ -155,6 +159,80 @@ public class DocumentRefreshTests
         CitationDocument.Refresh(doc, new(), id => Paper(id, id));
         Assert.False(cite.LockContents);
         Assert.Equal(2, doc.Content.ParagraphsAppended);
+    }
+
+    [Fact]
+    public void DeleteRemovesWrapperAndCollapsesSelection()
+    {
+        var doc = new TestDocument();
+        var cite = doc.ContentControls.Add(CitationDocument.BuildTag("p", ["a"]), 10);
+        var bib = doc.ContentControls.Add(CitationDocument.BibliographyTag, 100);
+        var selection = new TestSelection { ParentContentControl = cite };
+        CitationDocument.RemoveSelectedAndRefresh(doc, selection, new(), id => Paper(id, id));
+        Assert.Empty(doc.ContentControls.Items);
+        Assert.Equal("", cite.Range.Text);
+        Assert.True(bib.Deleted);
+        Assert.Equal(selection.Range.Start, selection.Range.End);
+        Assert.Null(selection.ParentContentControl);
+    }
+
+    [Fact]
+    public void EmptyLegacyCitationIsRemovedAndNeverResurrected()
+    {
+        var doc = new TestDocument();
+        var cite = doc.ContentControls.Add(CitationDocument.BuildTag("p", ["missing"]), 0);
+        cite.ShowingPlaceholderText = true;
+        var bib = doc.ContentControls.Add(CitationDocument.BibliographyTag, 100);
+        CitationDocument.Refresh(doc, new(), _ => null);
+        Assert.True(cite.Deleted);
+        Assert.True(bib.Deleted);
+    }
+
+    [Fact]
+    public void UserTypingAfterDeletingCitationCannotBeOverwrittenByRefresh()
+    {
+        var doc = new TestDocument();
+        var cite = doc.ContentControls.Add(CitationDocument.BuildTag("p", ["a"]), 0);
+        doc.ContentControls.Add(CitationDocument.BibliographyTag, 100);
+        CitationDocument.Refresh(doc, new(), id => Paper(id, id));
+        Assert.True(cite.Temporary);
+        cite.UserEdit("这是删除引用后新写的正文");
+        CitationDocument.Refresh(doc, new(), _ => null);
+        Assert.Equal("这是删除引用后新写的正文", cite.Range.Text);
+        Assert.True(cite.Deleted);
+        Assert.Empty(doc.ContentControls.Items);
+    }
+
+    [Fact]
+    public void StaleWrapperContainingProseIsDetachedWithoutDeletingText()
+    {
+        var doc = new TestDocument();
+        var cite = doc.ContentControls.Add(CitationDocument.BuildTag("p", ["a"]), 0);
+        doc.ContentControls.Add(CitationDocument.BibliographyTag, 100);
+        CitationDocument.Refresh(doc, new(), id => Paper(id, id));
+        // Emulate a legacy editor leaving a wrapper around later prose.
+        cite.Range.Text = "[1] 后面新写的正文";
+        CitationDocument.Refresh(doc, new(), _ => null);
+        Assert.True(cite.Deleted);
+        Assert.Equal("[1] 后面新写的正文", cite.Range.Text);
+    }
+
+    [Fact]
+    public void BundledNumericStyleIsSuperscriptButAuthorYearIsNot()
+    {
+        var catalog = StyleCatalog.Load(Path.Combine(AppContext.BaseDirectory, "styles"));
+        Assert.True(catalog.Get(StyleCatalog.DefaultId).CitationFormat.Superscript);
+        Assert.False(catalog.Get("author-year").CitationFormat.Superscript);
+    }
+
+    [Fact]
+    public void StylePunctuationSupportsNoSpaceAndCustomComma()
+    {
+        var punctuation = new CitationPunctuation { NarrativeSeparator = "", AuthorYearSeparator = " ", OpenBracket = "(", CloseBracket = ")" };
+        Assert.Equal("Smith(2020)", InTextFormatter.Format([Paper("a", "a")], narrative: true, punctuation: punctuation));
+        Assert.Equal("(Smith 2020)", InTextFormatter.Format([Paper("a", "a")], punctuation: punctuation));
+        punctuation.AuthorYearSeparator = ",";
+        Assert.Equal("(Smith,2020)", InTextFormatter.Format([Paper("a", "a")], punctuation: punctuation));
     }
 
     private static ReferenceItem Paper(string id, string title) => new()
@@ -181,11 +259,14 @@ public class TestControls
     public TestControl Add(int type, TestRange range) => Add("", range.Start);
     public TestControl Add(string tag, int start)
     {
-        var control = new TestControl { Tag = tag }; control.Range.Start = start; control.Range.End = start + 5; Items.Add(control); return control;
+        var control = new TestControl { Tag = tag, Owner = this }; control.Range.Text = "[1]"; control.Range.Start = start; control.Range.End = start + 5; Items.Add(control); return control;
     }
 }
 public class TestControl
 {
+    public TestControls? Owner { get; set; }
+    public bool Temporary { get; set; }
+    public bool ShowingPlaceholderText { get; set; }
     public string ID { get; } = Guid.NewGuid().ToString();
     public string Tag { get; set; } = "";
     public string Title { get; set; } = "";
@@ -194,7 +275,8 @@ public class TestControl
     public bool LockContents { get; set; }
     public bool LockContentControl { get; set; }
     public bool Deleted { get; private set; }
-    public void Delete(bool deleteContents = false) => Deleted = true;
+    public void Delete(bool deleteContents = false) { Deleted = true; if (deleteContents) Range.Text = ""; Owner?.Items.Remove(this); }
+    public void UserEdit(string text) { Range.Text = text; if (Temporary) Delete(false); else ShowingPlaceholderText = text.Length == 0; }
 }
 public class TestRange
 {
@@ -209,6 +291,8 @@ public class TestRange
 }
 public class TestSelection
 {
+    public TestFont Font { get; } = new();
+    public void SetRange(int start, int end) { Range.Start = start; Range.End = end; ParentContentControl = null; Range.ContentControls.Items.Clear(); }
     public TestControl? ParentContentControl { get; set; }
     public TestRange Range { get; } = new();
 }

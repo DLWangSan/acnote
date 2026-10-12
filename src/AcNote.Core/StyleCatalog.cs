@@ -37,6 +37,7 @@ public sealed class EtAlRule
 
 public sealed class CitationStyle
 {
+    public CitationPunctuation? Punctuation { get; set; }
     public TextLayout? Format { get; set; }
     public EtAlRule? EtAl { get; set; }
 }
@@ -74,6 +75,7 @@ public sealed class ResolvedStyle
     public string? FilePath { get; set; }
     public EtAlRule EtAl { get; set; } = EtAlRule.Default();
     public EtAlRule CitationEtAl { get; set; } = EtAlRule.CitationDefault();
+    public CitationPunctuation CitationPunctuation { get; } = new();
     public Dictionary<string, List<StyleToken>> Templates { get; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, List<string>> Required { get; } = new(StringComparer.OrdinalIgnoreCase);
 
@@ -220,6 +222,7 @@ public sealed class StyleCatalog
             if (part.Citation?.EtAl is not null)
                 ApplyEtAl(result.CitationEtAl, part.Citation.EtAl);
             if (part.Citation?.Format is not null) result.CitationFormat.Merge(part.Citation.Format);
+            if (part.Citation?.Punctuation is not null) result.CitationPunctuation.Merge(part.Citation.Punctuation);
             if (part.BibliographyFormat is not null) result.BibliographyFormat.Merge(part.BibliographyFormat);
             if (part.Templates is not null)
             {
@@ -243,6 +246,9 @@ public sealed class StyleCatalog
         if (string.IsNullOrWhiteSpace(result.Layout))
             result.Layout = "numeric";
         result.CitationFormat.Validate();
+        // Defaults also cover existing user copies of the bundled GB/T style.
+        // Explicit typography settings in a style or document still take precedence.
+        result.CitationFormat.Superscript ??= result.Layout == "numeric";
         result.BibliographyFormat.Validate();
         return result;
     }

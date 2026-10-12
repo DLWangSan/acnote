@@ -21,6 +21,7 @@ public sealed class StyleEditorWindow : Window
     private readonly ResolvedStyle _resolved;
     private readonly LayoutEditor _citationLayout;
     private readonly LayoutEditor _bibliographyLayout;
+    private readonly PunctuationEditor _punctuation;
 
     public StyleEditorWindow(string json, ResolvedStyle resolved)
     {
@@ -28,6 +29,7 @@ public sealed class StyleEditorWindow : Window
         Title = "版式 · 作者、字体与段落";
         _citationLayout = new LayoutEditor(resolved.CitationFormat, false);
         _bibliographyLayout = new LayoutEditor(resolved.BibliographyFormat, true);
+        _punctuation = new PunctuationEditor(resolved.CitationPunctuation);
         Width = 820;
         Height = 720;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -83,6 +85,7 @@ public sealed class StyleEditorWindow : Window
         authorPanel.Children.Add(_editor);
         tabs.Items.Add(new TabItem { Header = "作者与版式规则", Content = authorPanel });
         tabs.Items.Add(new TabItem { Header = "文中字体", Content = new ScrollViewer { Content = _citationLayout } });
+        tabs.Items.Add(new TabItem { Header = "引文标点与空格", Content = new ScrollViewer { Content = _punctuation } });
         tabs.Items.Add(new TabItem { Header = "文末字体与段落", Content = new ScrollViewer { Content = _bibliographyLayout } });
         root.Children.Add(tabs);
         Content = root;
@@ -101,6 +104,7 @@ public sealed class StyleEditorWindow : Window
             node["bibliographyFormat"] = _bibliographyLayout.Read();
             var citation = node["citation"] as JsonObject ?? new JsonObject();
             citation["format"] = _citationLayout.Read();
+            citation["punctuation"] = _punctuation.Read();
             node["citation"] = citation;
             JsonText = node.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
         }

@@ -1,5 +1,6 @@
 using AcNote.Core;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace AcNote.Word;
 
@@ -9,6 +10,30 @@ public static class CitationDocument
     public const string BibliographyTag = "acnote-bib";
     public const string LibraryVariable = "AcNoteLibrary";
     public const string TypographyVariable = "AcNoteTypography";
+    private const string RenderedPrefix = "AcNoteRendered_";
+
+    private static string? PreviousText(dynamic document, string id)
+    {
+        try { return (string)document.Variables[RenderedPrefix + id].Value; }
+        catch { return null; }
+    }
+
+    private static void RememberText(dynamic document, string id, string text)
+    {
+        try { document.Variables[RenderedPrefix + id].Value = text; }
+        catch { document.Variables.Add(RenderedPrefix + id, text); }
+    }
+
+    private static bool EditedCitation(dynamic document, dynamic control)
+    {
+        var text = (string)control.Range.Text;
+        var previous = PreviousText(document, (string)control.ID);
+        if (previous is not null) return text != previous;
+        // Migrate old documents conservatively. Never overwrite prose typed into
+        // an old empty citation wrapper. New controls use an explicit sentinel.
+        return text != "…" && !Regex.IsMatch(text, @"^\[[\d,，\s–—-]+\]$")
+            && !Regex.IsMatch(text, @"[\(（].*\d{4}[a-z]?.*[\)）]$");
+    }
 
     public static DocumentTypography GetTypography(object document)
     {
@@ -86,6 +111,9 @@ public static class CitationDocument
         dynamic range = wordDocument.Range(position, position);
         dynamic control = wordDocument.ContentControls.Add(0, range);
         Prepare(control, BuildTag(form, ids));
+        // A new control initially shows Word's placeholder. Give it real text so
+        // refresh can distinguish it from an existing citation the user emptied.
+        SetText(control, "…");
         var controlId = (string)control.ID;
         Refresh(wordDocument, style, lookup);
         MoveAfterControl(wordDocument, wordSelection, FindControl(document, controlId));
@@ -135,6 +163,11 @@ public static class CitationDocument
     {
         dynamic wordDocument = document;
         dynamic control = SelectedControl(selection);
+        if (ids.Count == 0)
+        {
+            RemoveSelectedAndRefresh(document, selection, style, lookup);
+            return;
+        }
         var tag = (string)(control.Tag ?? "");
         if (!IsCitationTag(tag))
             throw new InvalidOperationException("请把光标放在一处 AcNote 引用里。");
@@ -151,8 +184,13 @@ public static class CitationDocument
         ValidateReferences(document, [], lookup, (string)control.ID);
         control.LockContentControl = false;
         control.LockContents = false;
-        control.Range.Text = "";
+        var position = Math.Max(0, (int)control.Range.Start - 1);
+        // Delete contents and wrapper together; emptying Range.Text first creates
+        // a placeholder and can leave a stale selection inside the old wrapper.
         control.Delete(true);
+        dynamic selected = selection;
+        selected.SetRange(position, position);
+        selected.Font.Superscript = 0;
         Refresh(document, style, lookup);
     }
 
@@ -226,25 +264,55 @@ public static class CitationDocument
         var cites = new List<(int Start, int End, string Id, string Form, List<string> Ids)>();
         dynamic? bibliography = null;
         var count = (int)wordDocument.ContentControls.Count;
-        for (var index = 1; index <= count; index++)
+        var boundaries = new List<(int Start, int End)>();
+        for (var i = 1; i <= count; i++)
+        {
+            dynamic candidate = wordDocument.ContentControls[i];
+            if (IsCitationTag((string)(candidate.Tag ?? "")))
+                boundaries.Add(((int)candidate.Range.Start, (int)candidate.Range.End));
+        }
+        boundaries.Sort((a, b) => a.Start.CompareTo(b.Start));
+        for (var i = 1; i < boundaries.Count; i++)
+            if (boundaries[i].Start < boundaries[i - 1].End)
+                throw new InvalidOperationException("检测到旧版生成的嵌套引用，已停止更新以保留正文。请先撤销出错的插入，再在引用外重新插入。");
+        for (var index = count; index >= 1; index--)
         {
             dynamic control = wordDocument.ContentControls[index];
             var tag = (string)(control.Tag ?? "");
             if (tag.StartsWith(CitePrefix, StringComparison.Ordinal))
             {
+                if ((bool)control.ShowingPlaceholderText || string.IsNullOrWhiteSpace((string)control.Range.Text))
+                {
+                    control.LockContents = false;
+                    control.LockContentControl = false;
+                    control.Delete(true);
+                    continue;
+                }
+                if (EditedCitation(wordDocument, control))
+                {
+                    control.LockContents = false;
+                    control.LockContentControl = false;
+                    control.Delete(false); // User text survives; stale metadata does not.
+                    continue;
+                }
                 var parsed = ReadTag(tag);
                 cites.Add(((int)control.Range.Start, (int)control.Range.End, (string)control.ID, parsed.Form, parsed.Ids));
             }
             else if (tag == BibliographyTag)
             {
+                var previous = PreviousText(wordDocument, (string)control.ID);
+                if ((bool)control.ShowingPlaceholderText || (previous is not null && previous != (string)control.Range.Text))
+                {
+                    control.LockContents = false;
+                    control.LockContentControl = false;
+                    control.Delete((bool)control.ShowingPlaceholderText);
+                    continue;
+                }
                 bibliography = control;
             }
         }
 
         cites.Sort((left, right) => left.Start.CompareTo(right.Start));
-        for (var i = 1; i < cites.Count; i++)
-            if (cites[i].Start < cites[i - 1].End)
-                throw new InvalidOperationException("检测到旧版生成的嵌套引用。为保留正文，已停止更新；请先撤销导致错误的插入，再在引用外重新插入。");
         var order = new List<string>();
         var numbers = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var cite in cites)
@@ -262,15 +330,20 @@ public static class CitationDocument
         var records = order.ToDictionary(id => id, id => lookup(id) ?? throw new InvalidOperationException("找不到引用文献，请恢复文献或打开正确的文献库。未更新文档：" + id));
         var years = YearDisambiguator.Resolve(records.Values, style.CitationEtAl);
         var authorYear = string.Equals(style.Layout, "author-year", StringComparison.OrdinalIgnoreCase);
-        var needsYearLabels = authorYear || cites.Any(cite => cite.Form is "narrative" or "author-year");
         foreach (var cite in cites.AsEnumerable().Reverse())
         {
-            var rendered = authorYear || cite.Form is "narrative" or "author-year"
-                ? InTextFormatter.Format(cite.Ids.Select(id => records[id]), style.CitationEtAl, cite.Form == "narrative", years)
+            var rendered = authorYear
+                ? InTextFormatter.Format(cite.Ids.Select(id => records[id]), style.CitationEtAl, cite.Form == "narrative", years, style.CitationPunctuation)
                 : CitationNumbers.Format(cite.Ids.Select(id => numbers[id]));
             dynamic current = FindControl(document, cite.Id);
             SetText(current, rendered);
             ApplyFormat(current.Range, citationFormat, false);
+            RememberText(wordDocument, cite.Id, rendered);
+            // Word removes the wrapper when the user edits/deletes its text.
+            // This avoids empty "click here" placeholders and stale tags later
+            // overwriting prose. Programmatic refresh disables this first.
+            current.LockContentControl = false;
+            current.Temporary = true;
         }
 
         if (order.Count == 0)
@@ -307,7 +380,7 @@ public static class CitationDocument
                 var item = records[id];
                 var body = item is null
                     ? "（库中已无此文献）"
-                    : BibliographyFormatter.Format(item, style, needsYearLabels ? years.GetValueOrDefault(id) : null).Text;
+                    : BibliographyFormatter.Format(item, style).Text;
                 lines.Add($"[{numbers[id]}] {body}");
             }
         }
@@ -318,6 +391,7 @@ public static class CitationDocument
         EnsureBibliographyParagraph(wordDocument, bibliography);
         SetText(bibliography, string.Join("\r", lines));
         ApplyFormat(bibliography.Range, bibliographyFormat, true);
+        RememberText(wordDocument, (string)bibliography.ID, string.Join("\r", lines));
     }
 
     public static string GetStyleId(object document)
@@ -376,6 +450,7 @@ public static class CitationDocument
     {
         var position = Math.Min((int)control.Range.End + 1, (int)document.Content.End - 1);
         selection.SetRange(position, position);
+        selection.Font.Superscript = 0;
     }
 
     private static void Prepare(dynamic control, string tag)
@@ -394,7 +469,8 @@ public static class CitationDocument
             dynamic control = document.ContentControls[i];
             if ((string)control.ID == excludeControl) continue;
             var tag = (string)(control.Tag ?? "");
-            if (IsCitationTag(tag)) all.UnionWith(ReadTag(tag).Ids);
+            if (IsCitationTag(tag) && !(bool)control.ShowingPlaceholderText && !string.IsNullOrWhiteSpace((string)control.Range.Text) && !EditedCitation(document, control))
+                all.UnionWith(ReadTag(tag).Ids);
         }
         foreach (var id in all)
             if (lookup(id) is null) throw new InvalidOperationException("找不到引用文献，未修改文档：" + id);
@@ -423,6 +499,8 @@ public static class CitationDocument
     private static void SetText(dynamic control, string text)
     {
         control.LockContents = false;
+        control.LockContentControl = false;
+        control.Temporary = false;
         dynamic range = control.Range;
         range.Text = text ?? "";
     }

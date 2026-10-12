@@ -2,7 +2,7 @@ namespace AcNote.Core;
 
 public static class InTextFormatter
 {
-    public static string Format(IEnumerable<ReferenceItem?> items, EtAlRule? rule = null, bool narrative = false, IReadOnlyDictionary<string, string>? years = null)
+    public static string Format(IEnumerable<ReferenceItem?> items, EtAlRule? rule = null, bool narrative = false, IReadOnlyDictionary<string, string>? years = null, CitationPunctuation? punctuation = null)
     {
         rule ??= EtAlRule.CitationDefault();
         var list = items.ToList();
@@ -10,6 +10,10 @@ public static class InTextFormatter
             return "";
 
         var chinese = list.Any(item => item is not null && LanguageDetector.Resolve(item) == "zh");
+        punctuation ??= new();
+        var open = punctuation.OpenBracket ?? (chinese ? "（" : "(");
+        var close = punctuation.CloseBracket ?? (chinese ? "）" : ")");
+        var separator = punctuation.EntrySeparator ?? (chinese ? "；" : "; ");
         var parts = new List<string>();
         foreach (var item in list)
         {
@@ -19,7 +23,7 @@ public static class InTextFormatter
                 continue;
             }
 
-            var text = Piece(item, rule, narrative, chinese, years);
+            var text = Piece(item, rule, narrative, chinese, years, punctuation, open, close);
             if (text.Length > 0)
                 parts.Add(text);
         }
@@ -28,37 +32,34 @@ public static class InTextFormatter
             return "";
         if (!narrative)
         {
-            var body = string.Join(chinese ? "；" : "; ", parts);
-            return chinese ? "（" + body + "）" : "(" + body + ")";
+            var body = string.Join(separator, parts);
+            return open + body + close;
         }
 
-        return string.Join(chinese ? "；" : "; ", parts);
+        return string.Join(separator, parts);
     }
 
     public static string SortKey(ReferenceItem item) => CiteNames(item, EtAlRule.CitationDefault());
 
-    private static string Piece(ReferenceItem item, EtAlRule rule, bool narrative, bool chinese, IReadOnlyDictionary<string, string>? years)
+    private static string Piece(ReferenceItem item, EtAlRule rule, bool narrative, bool chinese, IReadOnlyDictionary<string, string>? years, CitationPunctuation punctuation, string open, string close)
     {
         var names = CiteNames(item, rule);
         var year = years?.GetValueOrDefault(item.Id) ?? item.Year.Trim();
         if (narrative)
         {
             if (names.Length == 0)
-                return YearOnly(year, chinese);
+                return year.Length == 0 ? "" : open + year + close;
             if (year.Length == 0)
                 return names;
-            return chinese ? $"{names}（{year}）" : $"{names} ({year})";
+            return names + (punctuation.NarrativeSeparator ?? (chinese ? "" : " ")) + open + year + close;
         }
 
         if (names.Length == 0)
             return year;
         if (year.Length == 0)
             return names;
-        return chinese ? $"{names}，{year}" : $"{names}, {year}";
+        return names + (punctuation.AuthorYearSeparator ?? (chinese ? "，" : ", ")) + year;
     }
-
-    private static string YearOnly(string year, bool chinese) =>
-        year.Length == 0 ? "" : chinese ? $"（{year}）" : $"({year})";
 
     public static string AuthorLabel(ReferenceItem item, EtAlRule rule) => CiteNames(item, rule);
 
