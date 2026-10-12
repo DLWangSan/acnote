@@ -34,6 +34,7 @@ jobs:
           gh release create $env:GITHUB_REF_NAME `
             "$artifacts/AcNote-Setup-$version-win-x64.exe" `
             "$artifacts/windowsdesktop-runtime-win-x64.exe" `
+            "$artifacts/windowsdesktop-runtime-win-x86.exe" `
             "$artifacts/SHA256SUMS.txt" `
             "$artifacts/latest.json" `
             --title "AcNote $version" `
