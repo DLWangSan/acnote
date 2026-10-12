@@ -17,7 +17,7 @@ namespace AcNote.WordAddin;
 public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
 {
     private const string Ribbon = """
-        <customUI xmlns="http://schemas.microsoft.com/office/2006/01/customui" onLoad="OnRibbonLoad">
+        <customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui" onLoad="OnRibbonLoad">
           <ribbon>
             <tabs>
               <tab id="tabAcNote" label="AcNote">
@@ -63,7 +63,11 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
     private object? _application;
     private object? _ribbon;
 
-    public void OnRibbonLoad(object ribbon) => _ribbon = ribbon;
+    public void OnRibbonLoad(object ribbon)
+    {
+        _ribbon = ribbon;
+        Log("ribbon-loaded " + (ribbon is null ? "no-ribbon" : ribbon.GetType().FullName));
+    }
 
     public void OnConnection(
         [MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(VariantDump), MarshalCookie = "dispatch")] object application,
@@ -179,14 +183,15 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
         var fields = new List<(int Start, int End, string Code, bool IsBibliography)>();
         var travelingXml = new StringBuilder();
         dynamic wordFields = original.Fields;
+        Log("endnote-copy scan-start path=" + sourcePath);
         for (var i = 1; i <= (int)wordFields.Count; i++)
         {
             dynamic field = wordFields[i];
             var code = (string)field.Code.Text;
-            var upper = code.TrimStart().ToUpperInvariant();
-            var isCite = upper.StartsWith("ADDIN EN.CITE ", StringComparison.Ordinal) || upper.StartsWith("ADDIN EN.CITE\r", StringComparison.Ordinal);
-            var isData = upper.StartsWith("ADDIN EN.CITE.DATA", StringComparison.Ordinal);
-            var isBibliography = upper.StartsWith("ADDIN EN.REFLIST", StringComparison.Ordinal);
+            var upper = code.TrimStart();
+            var isData = upper.StartsWith("ADDIN EN.CITE.DATA", StringComparison.OrdinalIgnoreCase);
+            var isCite = !isData && upper.StartsWith("ADDIN EN.CITE", StringComparison.OrdinalIgnoreCase);
+            var isBibliography = upper.StartsWith("ADDIN EN.REFLIST", StringComparison.OrdinalIgnoreCase);
             if (isCite || isData) travelingXml.AppendLine(System.Net.WebUtility.HtmlDecode(code));
             if (isCite || isBibliography)
                 fields.Add(((int)field.Result.Start, (int)field.Result.End, code, isBibliography));
@@ -198,6 +203,7 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
             .GroupBy(item => item.SourceKey["endnote-xml:".Length..])
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
         var citationRecords = fields.Where(field => !field.IsBibliography).SelectMany(field => RecordNumbers(field.Code)).Distinct(StringComparer.Ordinal).ToArray();
+        Log($"endnote-copy scan-complete fields={fields.Count} records={imported.Items.Count} citeRecords={citationRecords.Length} embeddedXmlChars={travelingXml.Length}");
         if (byRec.Count == 0 || citationRecords.Any(record => !byRec.ContainsKey(record)))
         {
             using var picker = new OpenFileDialog { Title = "选择对应的 EndNote 文献库（.enl / .enlx / XML）", Filter = "EndNote 文献库|*.enl;*.enlx;*.xml|所有文件|*.*" };
@@ -241,8 +247,24 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
             ids[key] = item.Id;
         }
 
-        original.SaveCopyAs(copyPath);
-        dynamic converted = app.Documents.Open(copyPath, ReadOnly: false, AddToRecentFiles: true);
+        // Word's Document object has no SaveCopyAs method (that method belongs to
+        // Excel workbooks). Save the current document first, then copy its on-disk
+        // package so unsaved edits and embedded EndNote traveling-library data are
+        // both retained without changing the document's identity/path in Word.
+        dynamic converted;
+        try
+        {
+            original.Save();
+            File.Copy(sourcePath, copyPath);
+            Log("endnote-copy file-copied " + copyPath);
+            converted = app.Documents.Open(copyPath, ReadOnly: false, AddToRecentFiles: true);
+        }
+        catch (Exception ex)
+        {
+            try { File.Delete(copyPath); } catch { }
+            try { File.Delete(libraryPath); } catch { }
+            throw new InvalidOperationException($"无法创建并打开 AcNote 副本（{ex.Message}）。原文档未被转换。", ex);
+        }
         try
         {
             // Process from the end so field removal cannot shift the remaining Word ranges.
@@ -294,7 +316,7 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
 
     private static List<string> RecordNumbers(string fieldCode) =>
         System.Text.RegularExpressions.Regex.Matches(System.Net.WebUtility.HtmlDecode(fieldCode),
-                "<rec-number>(.*?)</rec-number>", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Singleline)
+                "<(?:rec-number|recnum)\\b[^>]*>(.*?)</(?:rec-number|recnum)\\s*>", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Singleline)
             .Select(match => System.Text.RegularExpressions.Regex.Replace(match.Groups[1].Value, "<[^>]+>", "").Trim())
             .Where(value => value.Length > 0).Distinct(StringComparer.Ordinal).ToList();
 
