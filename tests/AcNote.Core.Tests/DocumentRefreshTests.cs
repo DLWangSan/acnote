@@ -235,6 +235,66 @@ public class DocumentRefreshTests
         Assert.Equal("(Smith,2020)", InTextFormatter.Format([Paper("a", "a")], punctuation: punctuation));
     }
 
+    [Fact]
+    public void AuthorYearGroupingAndOptionalNumbersDoNotChangeInlineCitations()
+    {
+        var doc = new TestDocument();
+        var english = Paper("en", "English title");
+        var chinese = new ReferenceItem { Id = "zh", Title = "中文题名", Language = "zh", Year = "2021", Authors = [AuthorFormatter.Parse("张三")] };
+        var cite = doc.ContentControls.Add(CitationDocument.BuildTag("narrative", ["en", "zh"]), 0);
+        var bib = doc.ContentControls.Add(CitationDocument.BibliographyTag, 100);
+        var catalog = StyleCatalog.Load(Path.Combine(AppContext.BaseDirectory, "styles"));
+        var style = catalog.Get("author-year");
+        ReferenceItem Lookup(string id) => id == "zh" ? chinese : english;
+        CitationDocument.Refresh(doc, style, Lookup);
+        Assert.StartsWith("张三", bib.Range.Text);
+        var inline = cite.Range.Text;
+        CitationDocument.SetTypography(doc, new() { List = new() { LanguageOrder = "western-first", NumberAuthorYear = true } });
+        CitationDocument.Refresh(doc, style, Lookup);
+        Assert.StartsWith("[1]\tSmith", bib.Range.Text);
+        Assert.Contains("\r[2]\t张三", bib.Range.Text);
+        Assert.Equal(inline, cite.Range.Text);
+        Assert.Equal(21, bib.Range.ParagraphFormat.TabStops.Position);
+        CitationDocument.Refresh(doc, catalog.Get(StyleCatalog.DefaultId), Lookup);
+        Assert.Equal("[1,2]", cite.Range.Text);
+        Assert.StartsWith("[1]\tSmith", bib.Range.Text);
+        CitationDocument.Refresh(doc, style, Lookup);
+        Assert.Equal(inline, cite.Range.Text);
+    }
+
+    [Fact]
+    public void BibliographyDefaultsAreReadableAndExplicitSettingsWin()
+    {
+        var style = StyleCatalog.Resolve(new StyleFile { Id = "test" }, new Dictionary<string, StyleFile>());
+        Assert.Equal(10.5, style.BibliographyFormat.FontSize);
+        Assert.Equal(21, style.BibliographyFormat.HangingIndent);
+        Assert.Equal(1.25, style.BibliographyFormat.LineSpacing);
+        Assert.Equal(6, style.BibliographyFormat.SpaceAfter);
+        Assert.Equal("left", style.BibliographyFormat.Alignment);
+        var explicitStyle = StyleCatalog.Resolve(new StyleFile { Id = "test", BibliographyFormat = new() { HangingIndent = 0, SpaceAfter = 0, FontSize = 12 } }, new Dictionary<string, StyleFile>());
+        Assert.Equal(0, explicitStyle.BibliographyFormat.HangingIndent);
+        Assert.Equal(0, explicitStyle.BibliographyFormat.SpaceAfter);
+        Assert.Equal(12, explicitStyle.BibliographyFormat.FontSize);
+    }
+
+    [Fact]
+    public void LanguageOrderingDoesNotDependOnCurrentCulture()
+    {
+        var previous = System.Globalization.CultureInfo.CurrentCulture;
+        var zh = new ReferenceItem { Id = "zh", Language = "zh", Authors = [AuthorFormatter.Parse("张三")] };
+        var en = Paper("en", "English");
+        try
+        {
+            foreach (var culture in new[] { "en-US", "zh-CN" })
+            {
+                System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.GetCultureInfo(culture);
+                Assert.Equal(new[] { "zh", "en" }, new BibliographyOptions().Order([en, zh]).Select(i => i.Id));
+                Assert.Equal(new[] { "en", "zh" }, new BibliographyOptions { LanguageOrder = "western-first" }.Order([zh, en]).Select(i => i.Id));
+            }
+        }
+        finally { System.Globalization.CultureInfo.CurrentCulture = previous; }
+    }
+
     private static ReferenceItem Paper(string id, string title) => new()
     { Id = id, Title = title, Year = "2020", Language = "en", Authors = [AuthorFormatter.Parse("Smith, John")] };
 }
@@ -306,6 +366,7 @@ public class TestFont
 }
 public class TestParagraph
 {
+    public TestTabStops TabStops { get; } = new();
     public void Reset() { LineSpacingRule = 0; LineSpacing = 0; SpaceBefore = 0; SpaceAfter = 0; LeftIndent = 0; FirstLineIndent = 0; Alignment = 0; }
     public int LineSpacingRule { get; set; }
     public float LineSpacing { get; set; }
@@ -314,4 +375,10 @@ public class TestParagraph
     public float LeftIndent { get; set; }
     public float FirstLineIndent { get; set; }
     public int Alignment { get; set; }
+}
+public class TestTabStops
+{
+    public float Position { get; private set; }
+    public void ClearAll() => Position = 0;
+    public void Add(float position, int alignment, int leader) => Position = position;
 }

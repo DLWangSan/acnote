@@ -59,6 +59,7 @@ public sealed class StyleFile
     public EtAlRule? EtAl { get; set; }
     public CitationStyle? Citation { get; set; }
     public TextLayout? BibliographyFormat { get; set; }
+    public BibliographyOptions? BibliographyOptions { get; set; }
     public Dictionary<string, List<StyleToken>>? Templates { get; set; }
     public Dictionary<string, List<string>>? Required { get; set; }
 }
@@ -81,6 +82,7 @@ public sealed class ResolvedStyle
 
     public TextLayout CitationFormat { get; } = new();
     public TextLayout BibliographyFormat { get; } = new();
+    public BibliographyOptions BibliographyOptions { get; } = new();
     public string DisplayName => Status == "unverified" ? Name + "（待校验）" : Name;
 }
 
@@ -224,6 +226,7 @@ public sealed class StyleCatalog
             if (part.Citation?.Format is not null) result.CitationFormat.Merge(part.Citation.Format);
             if (part.Citation?.Punctuation is not null) result.CitationPunctuation.Merge(part.Citation.Punctuation);
             if (part.BibliographyFormat is not null) result.BibliographyFormat.Merge(part.BibliographyFormat);
+            if (part.BibliographyOptions is not null) result.BibliographyOptions.Merge(part.BibliographyOptions);
             if (part.Templates is not null)
             {
                 foreach (var (type, tokens) in part.Templates)
@@ -250,6 +253,19 @@ public sealed class StyleCatalog
         // Explicit typography settings in a style or document still take precedence.
         result.CitationFormat.Superscript ??= result.Layout == "numeric";
         result.BibliographyFormat.Validate();
+        result.BibliographyOptions.Validate();
+        // Readable application defaults, not a claim of a university/APA layout.
+        // Fill only unspecified values, including for already-installed styles.
+        var bib = result.BibliographyFormat;
+        bib.FontFamily ??= "Times New Roman";
+        bib.EastAsiaFontFamily ??= "宋体";
+        bib.FontSize ??= 10.5;
+        bib.HangingIndent ??= 21;
+        bib.LineSpacing ??= 1.25;
+        bib.SpaceBefore ??= 0;
+        bib.SpaceAfter ??= 6;
+        bib.Alignment ??= "left";
+        bib.Superscript ??= false;
         return result;
     }
 

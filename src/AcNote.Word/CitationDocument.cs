@@ -261,6 +261,7 @@ public static class CitationDocument
         var typography = GetTypography(document);
         var citationFormat = DocumentTypography.Resolve(style.CitationFormat, typography.Citation);
         var bibliographyFormat = DocumentTypography.Resolve(style.BibliographyFormat, typography.Bibliography);
+        var listOptions = BibliographyOptions.Resolve(style.BibliographyOptions, typography.List);
         var cites = new List<(int Start, int End, string Id, string Form, List<string> Ids)>();
         dynamic? bibliography = null;
         var count = (int)wordDocument.ContentControls.Count;
@@ -358,19 +359,15 @@ public static class CitationDocument
         }
 
         var lines = new List<string>();
+        var numberedList = !authorYear || listOptions.NumberAuthorYear == true;
+        var numberSeparator = bibliographyFormat.HangingIndent > 0 ? "\t" : " ";
         if (authorYear)
         {
-            var entries = order
-                .Select(id => (Id: id, Item: records[id]))
-                .OrderBy(entry => entry.Item is null ? "" : InTextFormatter.SortKey(entry.Item), StringComparer.CurrentCulture)
-                .ThenBy(entry => entry.Item?.Year ?? "", StringComparer.Ordinal)
-                .ThenBy(entry => entry.Item?.Title ?? "", StringComparer.OrdinalIgnoreCase)
-                .ThenBy(entry => entry.Id, StringComparer.Ordinal);
+            var entries = listOptions.Order(order.Select(id => records[id]));
             foreach (var entry in entries)
             {
-                lines.Add(entry.Item is null
-                    ? "（库中已无此文献）"
-                    : BibliographyFormatter.Format(entry.Item, style, years.GetValueOrDefault(entry.Id)).Text);
+                var prefix = numberedList ? $"[{lines.Count + 1}]" + numberSeparator : "";
+                lines.Add(prefix + BibliographyFormatter.Format(entry, style, years.GetValueOrDefault(entry.Id)).Text);
             }
         }
         else
@@ -381,7 +378,7 @@ public static class CitationDocument
                 var body = item is null
                     ? "（库中已无此文献）"
                     : BibliographyFormatter.Format(item, style).Text;
-                lines.Add($"[{numbers[id]}] {body}");
+                lines.Add($"[{numbers[id]}]" + numberSeparator + body);
             }
         }
 
@@ -391,6 +388,14 @@ public static class CitationDocument
         EnsureBibliographyParagraph(wordDocument, bibliography);
         SetText(bibliography, string.Join("\r", lines));
         ApplyFormat(bibliography.Range, bibliographyFormat, true);
+        if (numberedList && bibliographyFormat.HangingIndent is > 0)
+        {
+            // A real tab stop aligns first-line text with wrapped lines, instead
+            // of estimating alignment with spaces after variable-width numbers.
+            dynamic tabs = bibliography.Range.ParagraphFormat.TabStops;
+            tabs.ClearAll();
+            tabs.Add((float)bibliographyFormat.HangingIndent.Value, 0, 0);
+        }
         RememberText(wordDocument, (string)bibliography.ID, string.Join("\r", lines));
     }
 

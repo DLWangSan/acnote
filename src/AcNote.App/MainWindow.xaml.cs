@@ -587,8 +587,11 @@ public partial class MainWindow : Window
             var current = ReadForm(); current.Id = id; return current;
         }).OfType<ReferenceItem>().ToList();
         var years = YearDisambiguator.Resolve(selected, _session.CurrentStyle.CitationEtAl);
+        var authorYear = _session.CurrentStyle.Layout == "author-year";
+        var listOptions = BibliographyOptions.Resolve(_session.CurrentStyle.BibliographyOptions, new());
+        if (authorYear) selected = listOptions.Order(selected).ToList();
         SelectionPreview.Text = string.Join(Environment.NewLine + Environment.NewLine, selected.Select((item, index) =>
-            (_session.CurrentStyle.Layout == "author-year" ? "" : $"[{index + 1}] ") +
+            (authorYear && listOptions.NumberAuthorYear != true ? "" : $"[{index + 1}] ") +
             BibliographyFormatter.Format(item, _session.CurrentStyle, _session.CurrentStyle.Layout == "author-year" ? years.GetValueOrDefault(item.Id) : null).Text));
     }
 

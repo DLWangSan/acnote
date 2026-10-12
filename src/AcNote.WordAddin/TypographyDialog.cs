@@ -8,7 +8,17 @@ internal sealed class TypographyDialog : Form
 {
     private readonly LayoutChoices _citation;
     private readonly LayoutChoices _bibliography;
-    public DocumentTypography Value => new() { Citation = _citation.Value, Bibliography = _bibliography.Value };
+    private readonly ComboBox _languageOrder;
+    private readonly ComboBox _numberAuthorYear;
+    public DocumentTypography Value => new()
+    {
+        Citation = _citation.Value, Bibliography = _bibliography.Value,
+        List = new()
+        {
+            LanguageOrder = _languageOrder.SelectedIndex switch { 1 => "chinese-first", 2 => "western-first", 3 => "mixed", _ => null },
+            NumberAuthorYear = _numberAuthorYear.SelectedIndex switch { 1 => false, 2 => true, _ => null }
+        }
+    };
 
     public TypographyDialog(DocumentTypography current)
     {
@@ -32,12 +42,26 @@ internal sealed class TypographyDialog : Form
         var inline = new TabPage("文中引文"); inline.Controls.Add(_citation);
         var bibliography = new TabPage("文末参考文献"); bibliography.Controls.Add(_bibliography);
         tabs.TabPages.Add(inline); tabs.TabPages.Add(bibliography);
+        var ordering = new TabPage("排序与序号");
+        var options = new FlowLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(16), FlowDirection = FlowDirection.TopDown, WrapContents = false };
+        options.Controls.Add(new Label { Text = "作者—年份列表的文种顺序", AutoSize = true });
+        _languageOrder = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 380 };
+        _languageOrder.Items.AddRange(["跟随版式（默认中文优先）", "中文优先", "西文优先（含英文）", "不分文种，按作者排序"]);
+        _languageOrder.SelectedIndex = current.List.LanguageOrder switch { "chinese-first" => 1, "western-first" => 2, "mixed" => 3, _ => 0 };
+        options.Controls.Add(_languageOrder);
+        options.Controls.Add(new Label { Text = "作者—年份列表的辅助序号", AutoSize = true, Margin = new Padding(3, 20, 3, 3) });
+        _numberAuthorYear = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 380 };
+        _numberAuthorYear.Items.AddRange(["跟随版式（默认无序号）", "不显示", "显示 [1] [2] …（自定义）"]);
+        _numberAuthorYear.SelectedIndex = current.List.NumberAuthorYear switch { false => 1, true => 2, _ => 0 };
+        options.Controls.Add(_numberAuthorYear);
+        options.Controls.Add(new Label { Text = "辅助序号只方便清点文末条目，不改变文中作者年份引用。\n顺序编码版式始终按文中首次引用顺序编号。\n投稿或提交论文时，以期刊或学校要求为准。", AutoSize = true, Margin = new Padding(3, 20, 3, 3) });
+        ordering.Controls.Add(options); tabs.TabPages.Add(ordering);
         root.Controls.Add(tabs, 0, 1);
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(0, 8, 0, 0) };
         var cancel = new Button { Text = "取消", DialogResult = DialogResult.Cancel, AutoSize = true };
         var ok = new Button { Text = "确定", DialogResult = DialogResult.OK, AutoSize = true };
         var reset = new Button { Text = "全部跟随版式", AutoSize = true };
-        reset.Click += (_, _) => { _citation.Reset(); _bibliography.Reset(); };
+        reset.Click += (_, _) => { _citation.Reset(); _bibliography.Reset(); _languageOrder.SelectedIndex = 0; _numberAuthorYear.SelectedIndex = 0; };
         buttons.Controls.Add(cancel); buttons.Controls.Add(ok); buttons.Controls.Add(reset);
         root.Controls.Add(buttons, 0, 2);
         Controls.Add(root);
@@ -72,7 +96,7 @@ internal sealed class TypographyDialog : Form
             _superscript = Add("文字位置", [new("正常", false), new("上标", true)], initial.Superscript);
             if (!paragraph) return;
             _line = Add("行距", new double[] { 1, 1.15, 1.25, 1.5, 2, 2.5, 3 }.Select(n => new Choice($"{n} 倍", n)), initial.LineSpacing);
-            var spacing = new double[] { 0, 3, 6, 9, 12, 18, 24, 36, 48 }.Select(n => new Choice($"{n} 磅", n)).ToArray();
+            var spacing = new double[] { 0, 3, 6, 9, 12, 18, 21, 24, 36, 48 }.Select(n => new Choice(n == 21 ? "21 磅（五号字约两字）" : n == 36 ? "36 磅（0.5 英寸）" : $"{n} 磅", n)).ToArray();
             _before = Add("段前间距", spacing, initial.SpaceBefore);
             _after = Add("段后间距", spacing, initial.SpaceAfter);
             _indent = Add("悬挂缩进", spacing, initial.HangingIndent);
