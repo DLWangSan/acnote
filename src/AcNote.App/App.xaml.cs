@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Text.Json;
 using AcNote.Core;
 
 namespace AcNote.App;
@@ -11,6 +12,7 @@ public partial class App : Application
 
     private void OnStartup(object sender, StartupEventArgs e)
     {
+        try { FileAssociations.Register(); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
         // Allow updating registration without opening a second library window or
         // letting the single-instance redirect silently keep an old installation.
         if (e.Args.Contains("--register-word", StringComparer.OrdinalIgnoreCase))
@@ -34,7 +36,19 @@ public partial class App : Application
 
         if (!createdNew)
         {
-            ControlPipe.Transact("{\"cmd\":\"activate\"}", attempts: 4, delayMs: 200);
+            var paths = e.Args.Where(a => !a.StartsWith("--")).Select(Path.GetFullPath).ToArray();
+            var reply = ControlPipe.Transact(paths.Length == 0 ? "{\"cmd\":\"activate\"}" : JsonSerializer.Serialize(new { cmd = "open-files", paths }), attempts: 20, delayMs: 200);
+            if (reply is null) MessageBox.Show("无法连接已运行的 AcNote，请关闭旧窗口后重新打开这些文件。", "AcNote");
+            else if (paths.Length > 0)
+            {
+                try
+                {
+                    using var response = JsonDocument.Parse(reply);
+                    if (!response.RootElement.TryGetProperty("ok", out var ok) || !ok.GetBoolean())
+                        MessageBox.Show("当前运行的 AcNote 尚不支持文件导入入口，请退出旧版本后重新打开文件。", "AcNote");
+                }
+                catch (JsonException) { MessageBox.Show("AcNote 未能接收文件，请重启后重试。", "AcNote"); }
+            }
             Shutdown();
             return;
         }
@@ -59,6 +73,8 @@ public partial class App : Application
             window.SetWordStatus(WordAddinRegistrar.TryRegister());
             _server = new ControlServer(session, window);
             _server.Start();
+            var incoming = e.Args.Where(a => !a.StartsWith("--")).Select(Path.GetFullPath).ToArray();
+            if (incoming.Length > 0) window.OpenFiles(incoming);
         }
         catch (Exception ex)
         {

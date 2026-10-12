@@ -2,7 +2,7 @@
  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
  Title="AcNote" Icon="Assets/acnote.ico" Width="1440" Height="900" MinWidth="1100" MinHeight="700"
- Background="#FFFFFF" FontFamily="Microsoft YaHei UI" FontSize="14" Foreground="#20364D">
+ Background="#FFFFFF" FontFamily="Microsoft YaHei UI" FontSize="14" Foreground="#20364D" AllowDrop="True" PreviewDragOver="FileDragOver" PreviewDrop="FileDrop">
  <DockPanel>
   <Border DockPanel.Dock="Top" Background="#203B53" Padding="22,14">
    <DockPanel>
@@ -11,7 +11,7 @@
      <TextBlock Text="AcNote" FontSize="23" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center"/>
     </StackPanel>
     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-     <Button Content="新建文献库" Click="NewLibrary_Click"/><Button Content="打开文献库" Click="OpenLibrary_Click"/>
+     <Button Content="新建文献库" Click="NewLibrary_Click"/><Button Content="打开文献库" Click="OpenLibrary_Click"/><Button Content="导入文献" Click="ImportEndNote_Click"/>
     </StackPanel>
     <TextBlock x:Name="LibraryName" Text="尚未打开文献库" Foreground="#CDDCE7" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
    </DockPanel>
@@ -33,7 +33,7 @@
      </StackPanel>
      <StackPanel>
       <TextBlock Text="我的文献库" FontWeight="SemiBold" FontSize="15" Margin="10,0,0,18"/>
-      <RadioButton Content="全部文献" Tag="all" GroupName="library" IsChecked="True" Click="FilterMode_Click" Style="{StaticResource NavigationItem}"/>
+      <RadioButton x:Name="AllReferences" Content="全部文献" Tag="all" GroupName="library" IsChecked="True" Click="FilterMode_Click" Style="{StaticResource NavigationItem}"/>
       <RadioButton Content="待补全" Tag="missing" GroupName="library" Click="FilterMode_Click" Style="{StaticResource NavigationItem}"/>
       <RadioButton Content="本次导入" Tag="recent" GroupName="library" Click="FilterMode_Click" Style="{StaticResource NavigationItem}"/>
       <TextBlock Text="选择文献后，可直接&#10;插入 Word。&#10;&#10;按住 Ctrl 或 Shift&#10;可选择多条文献。" Foreground="#8190A1" Margin="10,28,0,0" LineHeight="23"/>
@@ -44,7 +44,6 @@
     <Border DockPanel.Dock="Top" Padding="18,14" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
      <WrapPanel>
       <Button Content="＋ 新建文献" Click="New_Click"/>
-      <Button Content="导入 EndNote" Click="ImportEndNote_Click"/>
       <Button Content="插入选中文献" Click="InsertWord_Click" Style="{StaticResource AccentButton}"/>
       <Button Content="更新引用" Click="UpdateWord_Click"/>
       <ComboBox x:Name="InsertFormCombo" Width="132" Margin="4,0,0,0" SelectedIndex="0">

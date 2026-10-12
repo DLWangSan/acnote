@@ -8,6 +8,18 @@
 
 运行 Release 目录中的 AcNote，保存现有 Word 文档并退出所有 Word 窗口，再重新打开。已运行的 Word 可能仍显示旧版功能区。WPS 尚未完成兼容性验证。
 
+## 文献文件与导入
+
+- 新建文献库不再询问是否加入示例文献。
+- 顶部“新建文献库、打开文献库”之后有“导入文献”，来源可选 EndNote、Zotero、BibTeX/BibLaTeX、RIS、CSL JSON。
+- 把多个 `.bib` / `.ris` / `.enl` / `.enlx` / EndNote `.xml` / CSL `.json` / Zotero `.sqlite` 拖到列表或编辑区域，均应导入当前库；不会把文件路径写进题名编辑框。成功结果只显示在底部状态栏。
+- 首次使用、没有已打开的库时导入，应自动在 `%APPDATA%\AcNote\Libraries` 创建临时库；关掉再开应保留。临时库不是退出即删除的系统临时文件。
+- 程序启动或执行 `--register-word` 后，在上述文件“打开方式”里选择 AcNote；同时检查程序未运行和已经运行两种情况。路径包含空格、中文时也应正常。注册不修改其他软件的默认打开方式。
+- 同一文件重复导入应更新已有记录；两个文件具有相同 BibTeX 键或 EndNote 编号时不得互相覆盖。来源识别包含完整文件路径，因此移动或改名后的文件按新来源导入。
+- Zotero 本地库通过只读连接创建一致性快照，跳过回收站、附件和笔记记录；不会修改源库。此版本仅迁移文献元数据，不迁移附件、分类、笔记、旧工具 Word 引用链接。
+- 自动测试覆盖 BibTeX 嵌套括号、字符串拼接、机构作者、重音字符、交叉引用、损坏输入、RIS 连续行和多作者、GB18030 中文、CSL 日期、来源编号隔离、Zotero WAL 数据和已删除条目。
+- Zotero 格式依据：[官方格式说明](https://www.zotero.org/support/dev/data_formats)、[官方数据库结构](https://github.com/zotero/zotero/blob/master/resource/schema/userdata.sql)。
+
 ## Word 插件
 
 本轮新增验收：

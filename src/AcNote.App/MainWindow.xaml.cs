@@ -356,8 +356,6 @@ public partial class MainWindow : Window
             var path = dialog.FileName;
             DeleteLibraryFiles(path);
             var store = new LibraryStore(path);
-            if (MessageBox.Show("放入几条经典文献作为示例？", "AcNote", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
-                SampleLibrary.Seed(store);
             _shownId = null;
             _recentIds.Clear();
             ReferenceList.SelectedItems.Clear();
@@ -497,50 +495,75 @@ public partial class MainWindow : Window
 
     private void ImportEndNote_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFileDialog
-        {
-            Title = "导入 EndNote 文献库",
-            Filter = "EndNote (*.enl;*.enlx;*.xml)|*.enl;*.enlx;*.xml",
-        };
-        if (dialog.ShowDialog(this) != true)
-            return;
-        if (_session.Store is not LibraryStore store)
-        {
-            MessageBox.Show("请先新建或打开一个文献库。", "AcNote");
-            return;
-        }
+        var dialog = new ImportWindow { Owner = this };
+        if (dialog.ShowDialog() == true) OpenFiles(dialog.Files);
+    }
 
-        try
+    private void FileDragOver(object sender, DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
+        e.Effects = e.Data.GetData(DataFormats.FileDrop) is string[] paths && paths.Any(p => ReferenceImporter.Supports(p) || Path.GetExtension(p).Equals(".acnote", StringComparison.OrdinalIgnoreCase))
+            ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void FileDrop(object sender, DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
+        if (e.Data.GetData(DataFormats.FileDrop) is string[] paths) OpenFiles(paths);
+        e.Handled = true;
+    }
+
+    public void OpenFiles(IEnumerable<string> paths)
+    {
+        SaveShown();
+        var added = 0; var updated = 0; var warnings = new List<string>();
+        _recentIds.Clear();
+        foreach (var path in paths.Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            SaveShown();
-            var imported = EndNoteImporter.Import(dialog.FileName);
-            var added = 0;
-            var updated = 0;
-            foreach (var item in imported.Items)
+            try
             {
-                var existing = string.IsNullOrWhiteSpace(item.SourceKey) ? null : store.FindBySource(item.SourceKey);
-                if (existing is null)
+                if (!File.Exists(path)) throw new FileNotFoundException("找不到文件。", path);
+                if (Path.GetExtension(path).Equals(".acnote", StringComparison.OrdinalIgnoreCase))
                 {
-                    item.Id = Guid.NewGuid().ToString("N");
-                    added++;
+                    var opened = new LibraryStore(path);
+                    _shownId = null; ReferenceList.SelectedItems.Clear();
+                    _session.UseLibrary(opened, path);
+                    continue;
                 }
-                else
+                var imported = ReferenceImporter.Import(path);
+                warnings.AddRange(imported.Warnings.Select(w => Path.GetFileName(path) + "：" + w));
+                if (imported.Items.Count == 0) continue;
+                if (_session.Store is null)
                 {
-                    item.Id = existing.Id;
-                    item.Extra = existing.Extra;
-                    updated++;
+                    var temporary = Path.Combine(AppPaths.Root, "Libraries", $"临时文献库-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.acnote");
+                    _session.UseLibrary(new LibraryStore(temporary), temporary);
                 }
-                store.Save(item);
-                _recentIds.Add(item.Id);
+                var store = _session.Store!;
+                foreach (var item in imported.Items)
+                {
+                    var existing = store.FindBySource(item.SourceKey);
+                    if (existing is null) { item.Id = Guid.NewGuid().ToString("N"); added++; }
+                    else
+                    {
+                        item.Id = existing.Id;
+                        foreach (var pair in existing.Extra) item.Extra.TryAdd(pair.Key, pair.Value);
+                        updated++;
+                    }
+                    store.Save(item); _recentIds.Add(item.Id);
+                }
             }
-
-            Reload(_shownId);
-            var skipped = imported.Warnings.Count == 0 ? "" : $"\n跳过 {imported.Warnings.Count} 条。";
-            MessageBox.Show($"导入 {added} 条，更新 {updated} 条。{skipped}", "AcNote");
+            catch (Exception ex) { warnings.Add(Path.GetFileName(path) + "：" + ex.Message); }
         }
-        catch (Exception ex)
+        // Discard the old editor snapshot before reloading an updated selected record.
+        _shownId = null;
+        _filterMode = "all"; AllReferences.IsChecked = true; FilterBox.Clear();
+        Reload(_recentIds.FirstOrDefault());
+        SummaryText.Text = $"导入 {added} 条，更新 {updated} 条；当前库 {_session.Store?.Count() ?? 0} 条";
+        if (warnings.Count > 0)
         {
-            MessageBox.Show(ex.Message, "AcNote");
+            SummaryText.Text += $"；{warnings.Count} 项提示";
+            MessageBox.Show(this, string.Join("\n", warnings.Take(12)) + (warnings.Count > 12 ? "\n其余提示已省略。" : ""), "导入提示");
         }
     }
 

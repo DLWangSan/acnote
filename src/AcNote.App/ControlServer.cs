@@ -78,6 +78,15 @@ public sealed class ControlServer : IDisposable
             return command switch
             {
                 "ping" => "{\"ok\":true}",
+                "open-files" => OnUi(() =>
+                {
+                    var paths = document.RootElement.GetProperty("paths").EnumerateArray().Select(p => p.GetString() ?? "").ToArray();
+                    // Acknowledge receipt before importing so large files cannot block the sender.
+                    _window.Dispatcher.BeginInvoke(new Action(() => _window.OpenFiles(paths)));
+                    _window.WindowState = System.Windows.WindowState.Normal;
+                    _window.Activate();
+                    return "{\"ok\":true}";
+                }),
                 "activate" => OnUi(() =>
                 {
                     _window.Activate();
