@@ -27,6 +27,7 @@
    <Border Background="#F5F8FB" BorderBrush="#E2E8F0" BorderThickness="0,0,1,0">
     <DockPanel Margin="14,24">
     <StackPanel DockPanel.Dock="Bottom">
+      <Button Content="检查/修复 Word、WPS 插件" Click="RepairOfficeAddins_Click" Margin="0,0,0,8"/>
       <Button Content="GitHub 项目主页" Click="OpenGithub_Click" Margin="0,0,0,8"/>
       <Button Content="检查更新" Click="CheckUpdates_Click" Margin="0,0,0,16"/>
       <TextBlock Text="版式管理" Foreground="#718096" Margin="8,0,0,12"/>

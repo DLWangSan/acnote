@@ -51,6 +51,36 @@ public partial class MainWindow : Window
     public void SetWordStatus(string text) => WordStatusText.Text = text;
     private void CheckUpdates_Click(object sender, RoutedEventArgs e) => new UpdateWindow { Owner = this }.ShowDialog();
 
+    private void RepairOfficeAddins_Click(object sender, RoutedEventArgs e)
+    {
+        var running = new List<string>();
+        if (CountProcesses("WINWORD") > 0) running.Add("Word");
+        if (CountProcesses("wps") > 0) running.Add("WPS");
+        if (running.Count > 0)
+        {
+            var message = $"检测到 {string.Join("、", running)} 仍在运行。插件需要在 Office 启动时加载。请保存文档、完全退出所有 Word/WPS 窗口和后台进程，再回到 AcNote 点击此按钮。";
+            WordStatusText.Text = "请先完全退出 Word/WPS，再检查插件。";
+            MessageBox.Show(this, message, "检查/修复 Word、WPS 插件", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var status = WordAddinRegistrar.TryRegister(force: true);
+        WordStatusText.Text = status;
+        var registered = status.StartsWith("Word 功能区已登记", StringComparison.Ordinal);
+        var detail = registered
+            ? status + Environment.NewLine + Environment.NewLine + "注册路径已回读核验。现在可以启动 Word/WPS；如果选项卡仍未显示，请把 %AppData%\\AcNote\\word-registration.log 发给开发者。"
+            : status + Environment.NewLine + Environment.NewLine + "可查看 %AppData%\\AcNote\\word-registration.log 获取详细原因。";
+        MessageBox.Show(this, detail, "检查/修复 Word、WPS 插件", MessageBoxButton.OK,
+            registered ? MessageBoxImage.Information : MessageBoxImage.Error);
+    }
+
+    private static int CountProcesses(string name)
+    {
+        var processes = Process.GetProcessesByName(name);
+        try { return processes.Length; }
+        finally { foreach (var process in processes) process.Dispose(); }
+    }
+
     private void OpenGithub_Click(object sender, RoutedEventArgs e) => Process.Start(new ProcessStartInfo("https://github.com/DLWangSan/acnote") { UseShellExecute = true });
 
     public void SaveShown() => Save(_shownId);

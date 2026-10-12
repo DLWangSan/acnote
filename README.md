@@ -64,7 +64,7 @@ Documents remember the library path and style. Refresh uses that bound library e
 
 Desktop shortcuts: `Ctrl+2` inserts selected references, `Ctrl+N` creates a record, and `Ctrl+S` saves. The bottom preview covers selected records; Word resolves year collisions across all references cited in the document.
 
-The installer includes both x64 and x86 Word/WPS COM add-ins and registers the matching registry views, so 32-bit WPS can load the add-in on 64-bit Windows. It installs whichever .NET 10 Desktop Runtime architectures are missing. After installation, save your work and fully exit all Word and WPS processes before reopening; Office loads add-ins at startup. If a tab is still missing, check `%AppData%\AcNote\word-registration.log` for the registered COM paths.
+The installer includes both x64 and x86 Word/WPS COM add-ins and registers the matching registry views, so 32-bit WPS can load the add-in on 64-bit Windows. It installs whichever .NET 10 Desktop Runtime architectures are missing and waits for Word/WPS to close before registration. The app also has a **Check/repair Word and WPS add-in** action. Office loads add-ins at startup, so fully exit all Word and WPS processes after installing or repairing. If a tab is still missing, check `%AppData%\AcNote\word-registration.log` for the registered COM paths.
 
 ### Import
 

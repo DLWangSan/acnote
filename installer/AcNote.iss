@@ -1,5 +1,5 @@
 #ifndef AppVersion
-  #define AppVersion "0.1.4"
+  #define AppVersion "0.1.5"
 #endif
 #ifndef PublishDir
   #define PublishDir "..\artifacts\publish"
@@ -112,10 +112,53 @@ begin
   end;
 end;
 
-function PrepareToInstall(var NeedsRestart: Boolean): String;
-var Code: Integer;
+function IsProcessRunning(const ImageName: String; var CheckFailed: Boolean): Boolean;
+var ResultCode: Integer; OutputFile: String; OutputText: AnsiString; CommandLine: String;
+begin
+  Result := False;
+  OutputFile := ExpandConstant('{tmp}\acnote-process-check.txt');
+  DeleteFile(OutputFile);
+  CommandLine := '/C tasklist /FI "IMAGENAME eq ' + ImageName + '" /FO CSV /NH > "' + OutputFile + '"';
+  if not Exec(ExpandConstant('{sys}\cmd.exe'), CommandLine, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) or
+     (ResultCode <> 0) or not LoadStringFromFile(OutputFile, OutputText) then
+  begin
+    CheckFailed := True;
+    Exit;
+  end;
+  Result := Pos('"' + Uppercase(ImageName) + '"', Uppercase(String(OutputText))) > 0;
+end;
+
+function RunningOfficeApps(var CheckFailed: Boolean): String;
 begin
   Result := '';
+  if IsProcessRunning('WINWORD.EXE', CheckFailed) then Result := 'Microsoft Word';
+  if IsProcessRunning('wps.exe', CheckFailed) then
+  begin
+    if Result <> '' then Result := Result + '、';
+    Result := Result + 'WPS Writer';
+  end;
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var Code: Integer; CheckFailed: Boolean; RunningApps: String;
+begin
+  Result := '';
+  repeat
+    CheckFailed := False;
+    RunningApps := RunningOfficeApps(CheckFailed);
+    if CheckFailed then
+    begin
+      Result := '安装程序无法确认 Word/WPS 是否已经退出。请稍后重试；为避免插件注册失败，本次安装已取消。';
+      Exit;
+    end;
+    if RunningApps = '' then Break;
+    if MsgBox('检测到 ' + RunningApps + ' 正在运行。插件需要在程序启动时加载。请保存文档并完全退出 Word/WPS（包括所有窗口和后台进程），然后点击“确定”继续检查；点击“取消”退出安装。', mbConfirmation, MB_OKCANCEL) <> IDOK then
+    begin
+      Result := '请先完全退出 Word/WPS，再运行 AcNote 安装程序。';
+      Exit;
+    end;
+  until False;
+
   if HasDesktopRuntimeX64 and HasDesktopRuntimeX86 then Exit;
   if MsgBox('AcNote 需要 Microsoft .NET 10 Desktop Runtime（x64 和 x86），以支持 64 位 Word 和 32 位 WPS。现在将安装缺少的微软签名运行环境；无需重启，完成后 AcNote 安装会自动继续。是否继续？', mbConfirmation, MB_YESNO) <> IDYES then
   begin
