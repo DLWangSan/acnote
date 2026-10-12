@@ -70,6 +70,8 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
     {
         _application = application;
         Log(_application is null ? "connected no-app" : "connected app");
+        Log("addin-build " + typeof(Connect).Module.ModuleVersionId + " path=" + typeof(Connect).Assembly.Location);
+        Log("citation-build " + typeof(CitationDocument).Module.ModuleVersionId + " path=" + typeof(CitationDocument).Assembly.Location);
         try
         {
             AppPaths.EnsureStyles(BundledStyles());

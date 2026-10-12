@@ -11,6 +11,17 @@ public partial class App : Application
 
     private void OnStartup(object sender, StartupEventArgs e)
     {
+        // Allow updating registration without opening a second library window or
+        // letting the single-instance redirect silently keep an old installation.
+        if (e.Args.Contains("--register-word", StringComparer.OrdinalIgnoreCase))
+        {
+            var status = WordAddinRegistrar.TryRegister();
+            Directory.CreateDirectory(AppPaths.Root);
+            File.WriteAllText(Path.Combine(AppPaths.Root, "word-registration.log"), status);
+            Shutdown(status.Contains("已登记", StringComparison.Ordinal) ? 0 : 1);
+            return;
+        }
+
         var createdNew = false;
         try
         {

@@ -2,6 +2,10 @@
 
 ## 加载新版
 
+注意确认实际启动目录：旧版 Debug/Release 程序启动时会重新登记自己附带的插件。仅编译到另一个目录不会更新日常使用的入口。
+
+可在不打开主程序窗口的情况下执行 `AcNote.App.exe --register-word` 登记该目录的插件。结果写入 `%APPDATA%\AcNote\word-registration.log`，退出码 0 表示成功。登记后仍需退出并重新启动 Word；插件连接日志会记录 DLL 路径和构建标识，便于确认加载版本。
+
 运行 Release 目录中的 AcNote，保存现有 Word 文档并退出所有 Word 窗口，再重新打开。已运行的 Word 可能仍显示旧版功能区。WPS 尚未完成兼容性验证。
 
 ## Word 插件
