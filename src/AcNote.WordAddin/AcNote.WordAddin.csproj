@@ -3,6 +3,7 @@
     <TargetFramework>net9.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
     <EnableComHosting>true</EnableComHosting>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <RootNamespace>AcNote.WordAddin</RootNamespace>

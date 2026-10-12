@@ -1,4 +1,5 @@
 using AcNote.Core;
+using System.Text.Json;
 
 namespace AcNote.Word;
 
@@ -7,6 +8,28 @@ public static class CitationDocument
     public const string CitePrefix = "acnote-cite|";
     public const string BibliographyTag = "acnote-bib";
     public const string LibraryVariable = "AcNoteLibrary";
+    public const string TypographyVariable = "AcNoteTypography";
+
+    public static DocumentTypography GetTypography(object document)
+    {
+        dynamic doc = document;
+        string json;
+        try { json = (string)doc.Variables[TypographyVariable].Value; }
+        catch { return new(); }
+        var value = JsonSerializer.Deserialize<DocumentTypography>(json)
+            ?? throw new InvalidOperationException("文档的字体段落设置无法读取。");
+        value.Validate();
+        return value;
+    }
+
+    public static void SetTypography(object document, DocumentTypography value)
+    {
+        value.Validate();
+        dynamic doc = document;
+        var json = JsonSerializer.Serialize(value);
+        try { doc.Variables[TypographyVariable].Value = json; }
+        catch { doc.Variables.Add(TypographyVariable, json); }
+    }
 
     public static void BindLibrary(object document, string path)
     {
@@ -26,8 +49,18 @@ public static class CitationDocument
 
     public static List<string> SelectionIds(object selection)
     {
+        return ReadTag((string)SelectedControl(selection).Tag).Ids;
+    }
+
+    private static dynamic SelectedControl(object selection)
+    {
         dynamic selected = selection;
-        return ReadTag((string)selected.ParentContentControl.Tag).Ids;
+        dynamic? parent = selected.ParentContentControl;
+        if (parent is not null && IsCitationTag((string)(parent.Tag ?? ""))) return parent;
+        // Selecting the whole control can leave ParentContentControl empty.
+        dynamic controls = selected.Range.ContentControls;
+        if ((int)controls.Count == 1 && IsCitationTag((string)(controls[1].Tag ?? ""))) return controls[1];
+        throw new InvalidOperationException("请选中一处 AcNote 引用或把光标放在引用内。");
     }
 
     public const string StyleVariable = "AcNoteStyle";
@@ -47,12 +80,49 @@ public static class CitationDocument
 
         ValidateReferences(wordDocument, ids, lookup);
         SetStyleId(wordDocument, style.Id);
-        dynamic range = wordSelection.Range;
-        range.Collapse(0);
+        // Never nest a new citation inside an existing control, including at its
+        // closing boundary. Use a fresh document range instead of a live Selection.
+        var position = InsertionPosition(document, (int)wordSelection.Range.End);
+        dynamic range = wordDocument.Range(position, position);
         dynamic control = wordDocument.ContentControls.Add(0, range);
         Prepare(control, BuildTag(form, ids));
+        var controlId = (string)control.ID;
         Refresh(wordDocument, style, lookup);
-        MoveAfterControl(wordDocument, wordSelection, control);
+        MoveAfterControl(wordDocument, wordSelection, FindControl(document, controlId));
+    }
+
+    public static int InsertionPosition(object document, int position)
+    {
+        dynamic doc = document;
+        bool moved;
+        do
+        {
+            moved = false;
+            for (var i = 1; i <= (int)doc.ContentControls.Count; i++)
+            {
+                dynamic control = doc.ContentControls[i];
+                var tag = (string)(control.Tag ?? "");
+                if (tag != BibliographyTag && !IsCitationTag(tag)) continue;
+                var start = (int)control.Range.Start;
+                var end = (int)control.Range.End;
+                if (position < start || position > end) continue;
+                if (tag == BibliographyTag)
+                    throw new InvalidOperationException("请把光标移到正文后插入引用，不能插入参考文献列表内部。");
+                position = end + 1;
+                moved = true;
+            }
+        } while (moved);
+        if (position > (int)doc.Content.End - 1)
+            throw new InvalidOperationException("请在引用后按右方向键并换行，再插入文献。");
+        return position;
+    }
+
+    private static dynamic FindControl(object document, string id)
+    {
+        dynamic doc = document;
+        for (var i = 1; i <= (int)doc.ContentControls.Count; i++)
+            if ((string)doc.ContentControls[i].ID == id) return doc.ContentControls[i];
+        throw new InvalidOperationException("引用在更新过程中被删除，请撤销本次操作后重试。");
     }
 
     public static void ReplaceSelectedAndRefresh(
@@ -64,8 +134,7 @@ public static class CitationDocument
         Func<string, ReferenceItem?> lookup)
     {
         dynamic wordDocument = document;
-        dynamic wordSelection = selection;
-        dynamic control = wordSelection.ParentContentControl;
+        dynamic control = SelectedControl(selection);
         var tag = (string)(control.Tag ?? "");
         if (!IsCitationTag(tag))
             throw new InvalidOperationException("请把光标放在一处 AcNote 引用里。");
@@ -78,8 +147,7 @@ public static class CitationDocument
     public static void RemoveSelectedAndRefresh(object document, object selection, ResolvedStyle style, Func<string, ReferenceItem?> lookup)
     {
         if (!SelectionIsCitation(selection)) throw new InvalidOperationException("请把光标放在要移除的 AcNote 引用里。");
-        dynamic selected = selection;
-        dynamic control = selected.ParentContentControl;
+        dynamic control = SelectedControl(selection);
         ValidateReferences(document, [], lookup, (string)control.ID);
         control.LockContentControl = false;
         control.LockContents = false;
@@ -92,8 +160,7 @@ public static class CitationDocument
     {
         try
         {
-            dynamic wordSelection = selection;
-            dynamic control = wordSelection.ParentContentControl;
+            dynamic control = SelectedControl(selection);
             return ReadTag((string)(control.Tag ?? "")).Form;
         }
         catch
@@ -103,7 +170,7 @@ public static class CitationDocument
     }
 
     public static string BuildTag(string form, IReadOnlyList<string> ids) =>
-        CitePrefix + (form == "narrative" ? "n" : "p") + "|" + string.Join(';', ids);
+        CitePrefix + (form == "narrative" ? "n" : form == "author-year" ? "a" : "p") + "|" + string.Join(';', ids.Distinct());
 
     public static bool IsCitationTag(string tag) =>
         tag.StartsWith(CitePrefix, StringComparison.Ordinal);
@@ -115,6 +182,11 @@ public static class CitationDocument
         if (body.StartsWith("n|", StringComparison.Ordinal))
         {
             form = "narrative";
+            body = body[2..];
+        }
+        else if (body.StartsWith("a|", StringComparison.Ordinal))
+        {
+            form = "author-year";
             body = body[2..];
         }
         else if (body.StartsWith("p|", StringComparison.Ordinal))
@@ -135,8 +207,7 @@ public static class CitationDocument
     {
         try
         {
-            dynamic wordSelection = selection;
-            dynamic control = wordSelection.ParentContentControl;
+            dynamic control = SelectedControl(selection);
             var tag = (string)(control.Tag ?? "");
             return IsCitationTag(tag);
         }
@@ -149,7 +220,10 @@ public static class CitationDocument
     public static void Refresh(object document, ResolvedStyle style, Func<string, ReferenceItem?> lookup)
     {
         dynamic wordDocument = document;
-        var cites = new List<(int Start, dynamic Control, string Form, List<string> Ids)>();
+        var typography = GetTypography(document);
+        var citationFormat = DocumentTypography.Resolve(style.CitationFormat, typography.Citation);
+        var bibliographyFormat = DocumentTypography.Resolve(style.BibliographyFormat, typography.Bibliography);
+        var cites = new List<(int Start, int End, string Id, string Form, List<string> Ids)>();
         dynamic? bibliography = null;
         var count = (int)wordDocument.ContentControls.Count;
         for (var index = 1; index <= count; index++)
@@ -159,7 +233,7 @@ public static class CitationDocument
             if (tag.StartsWith(CitePrefix, StringComparison.Ordinal))
             {
                 var parsed = ReadTag(tag);
-                cites.Add(((int)control.Range.Start, control, parsed.Form, parsed.Ids));
+                cites.Add(((int)control.Range.Start, (int)control.Range.End, (string)control.ID, parsed.Form, parsed.Ids));
             }
             else if (tag == BibliographyTag)
             {
@@ -168,6 +242,9 @@ public static class CitationDocument
         }
 
         cites.Sort((left, right) => left.Start.CompareTo(right.Start));
+        for (var i = 1; i < cites.Count; i++)
+            if (cites[i].Start < cites[i - 1].End)
+                throw new InvalidOperationException("检测到旧版生成的嵌套引用。为保留正文，已停止更新；请先撤销导致错误的插入，再在引用外重新插入。");
         var order = new List<string>();
         var numbers = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var cite in cites)
@@ -185,13 +262,16 @@ public static class CitationDocument
         var records = order.ToDictionary(id => id, id => lookup(id) ?? throw new InvalidOperationException("找不到引用文献，请恢复文献或打开正确的文献库。未更新文档：" + id));
         var years = YearDisambiguator.Resolve(records.Values, style.CitationEtAl);
         var authorYear = string.Equals(style.Layout, "author-year", StringComparison.OrdinalIgnoreCase);
-        foreach (var cite in cites)
+        var needsYearLabels = authorYear || cites.Any(cite => cite.Form is "narrative" or "author-year");
+        foreach (var cite in cites.AsEnumerable().Reverse())
         {
-            var rendered = authorYear
+            var rendered = authorYear || cite.Form is "narrative" or "author-year"
                 ? InTextFormatter.Format(cite.Ids.Select(id => records[id]), style.CitationEtAl, cite.Form == "narrative", years)
                 : CitationNumbers.Format(cite.Ids.Select(id => numbers[id]));
-            SetText(cite.Control, rendered);
-            ApplyFormat(cite.Control.Range, style.CitationFormat, false);
+            dynamic current = FindControl(document, cite.Id);
+            SetText(current, rendered);
+            ApplyFormat(current.Range, citationFormat, false);
+            current.LockContents = true;
         }
 
         if (order.Count == 0)
@@ -199,6 +279,7 @@ public static class CitationDocument
             if (bibliography is not null)
             {
                 bibliography.LockContentControl = false;
+                bibliography.LockContents = false;
                 bibliography.Delete(true);
             }
             return;
@@ -227,7 +308,7 @@ public static class CitationDocument
                 var item = records[id];
                 var body = item is null
                     ? "（库中已无此文献）"
-                    : BibliographyFormatter.Format(item, style).Text;
+                    : BibliographyFormatter.Format(item, style, needsYearLabels ? years.GetValueOrDefault(id) : null).Text;
                 lines.Add($"[{numbers[id]}] {body}");
             }
         }
@@ -237,7 +318,7 @@ public static class CitationDocument
 
         EnsureBibliographyParagraph(wordDocument, bibliography);
         SetText(bibliography, string.Join("\r", lines));
-        ApplyFormat(bibliography.Range, style.BibliographyFormat, true);
+        ApplyFormat(bibliography.Range, bibliographyFormat, true);
     }
 
     public static string GetStyleId(object document)
@@ -321,12 +402,16 @@ public static class CitationDocument
     private static void ApplyFormat(dynamic range, TextLayout format, bool paragraph)
     {
         format.Validate();
+        // Remove the previous AcNote overrides so "follow style" really resets
+        // to the document's underlying Word style, then apply the current values.
+        range.Font.Reset();
         if (!string.IsNullOrWhiteSpace(format.FontFamily)) range.Font.Name = format.FontFamily;
         if (!string.IsNullOrWhiteSpace(format.EastAsiaFontFamily)) range.Font.NameFarEast = format.EastAsiaFontFamily;
         if (format.FontSize is double size) range.Font.Size = (float)size;
         range.Font.Superscript = format.Superscript == true ? -1 : 0;
         if (!paragraph) return;
         dynamic p = range.ParagraphFormat;
+        p.Reset();
         if (format.LineSpacing is double line) { p.LineSpacingRule = 5; p.LineSpacing = (float)(12 * line); }
         if (format.SpaceBefore is double before) p.SpaceBefore = (float)before;
         if (format.SpaceAfter is double after) p.SpaceAfter = (float)after;

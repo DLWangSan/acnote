@@ -26,6 +26,9 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
                   <button id="btnEdit" label="编辑引用" imageMso="SourceManager" onAction="OnEditCitation"/>
                   <button id="btnRemove" label="移除此处引用" imageMso="Delete" onAction="OnRemoveCitation"/>
                   <menu id="mInsert" label="引用形式" imageMso="CitationInsert">
+                    <button id="btnConvertNarr" label="此处改为：作者（年份）" onAction="OnConvertNarrative"/>
+                    <button id="btnConvertParen" label="此处改为：（作者，年份）" onAction="OnConvertParenthetical"/>
+                    <button id="btnConvertDefault" label="此处恢复为当前版式" onAction="OnConvertDefault"/>
                     <button id="btnParen" label="插入已选文献：（作者，年）" onAction="OnInsertParenthetical"/>
                     <button id="btnNarr" label="插入已选文献：作者（年）" onAction="OnInsertNarrative"/>
                   </menu>
@@ -41,6 +44,16 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
               </tab>
             </tabs>
           </ribbon>
+          <contextMenus>
+            <contextMenu idMso="ContextMenuText">
+              <menu id="acnoteContext" label="AcNote 引用形式">
+                <button id="ctxNarrative" label="作者（年份）" onAction="OnConvertNarrative"/>
+                <button id="ctxParenthetical" label="（作者，年份）" onAction="OnConvertParenthetical"/>
+                <button id="ctxDefault" label="恢复为当前版式" onAction="OnConvertDefault"/>
+                <button id="ctxRemove" label="移除此处引用" onAction="OnRemoveCitation"/>
+              </menu>
+            </contextMenu>
+          </contextMenus>
         </customUI>
         """;
 
@@ -145,11 +158,29 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
 
     public void OnOpenApp(object control) => Guard(() => Ask("{\"cmd\":\"activate\"}"));
 
+    public void OnConvertNarrative(object control) => ConvertCitation("narrative");
+    public void OnConvertParenthetical(object control) => ConvertCitation("author-year");
+    public void OnConvertDefault(object control) => ConvertCitation("parenthetical");
+
+    private void ConvertCitation(string form) => Guard(() =>
+    {
+        var (document, selection) = Active();
+        if (!CitationDocument.SelectionIsCitation(selection))
+            throw new InvalidOperationException("请选中一处 AcNote 引用或把光标放在引用内。");
+        CitationDocument.ReplaceSelectedAndRefresh(document, selection, CitationDocument.SelectionIds(selection),
+            form, ResolveStyle(document, null), LookupFor(document));
+    });
+
     public void OnEditStyle(object control) => Guard(() =>
     {
         var (document, _) = Active();
-        Ask(JsonSerializer.Serialize(new { cmd = "edit-style", styleId = ResolveStyle(document, null).Id }));
-        CitationDocument.Refresh(document, ResolveStyle(document, null), LookupFor(document));
+        var previous = CitationDocument.GetTypography(document);
+        using var dialog = new TypographyDialog(previous);
+        if (dialog.ShowForWord(_application!) != System.Windows.Forms.DialogResult.OK) return;
+        var lookup = LookupFor(document);
+        CitationDocument.SetTypography(document, dialog.Value);
+        try { CitationDocument.Refresh(document, ResolveStyle(document, null), lookup); }
+        catch { CitationDocument.SetTypography(document, previous); throw; }
         InvalidateStyle();
     });
 
@@ -430,6 +461,15 @@ public interface IDTExtensibility2
 
     [DispId(23)]
     void OnRemoveCitation(object control);
+
+    [DispId(24)]
+    void OnConvertNarrative(object control);
+
+    [DispId(25)]
+    void OnConvertParenthetical(object control);
+
+    [DispId(26)]
+    void OnConvertDefault(object control);
 
     [DispId(22)]
     void OnFindCitation(object control);
