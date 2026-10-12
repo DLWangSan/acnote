@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net9.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -28,7 +28,7 @@
   </ItemGroup>
   <Target Name="CopyWordAddin" AfterTargets="Build">
     <PropertyGroup>
-      <_AddinDir>$(MSBuildThisFileDirectory)..\AcNote.WordAddin\bin\$(Configuration)\net9.0-windows\win-x64\</_AddinDir>
+      <_AddinDir>$(MSBuildThisFileDirectory)..\AcNote.WordAddin\bin\$(Configuration)\net10.0-windows\win-x64\</_AddinDir>
     </PropertyGroup>
     <ItemGroup>
       <_AddinFile Include="$(_AddinDir)**\*.*" />

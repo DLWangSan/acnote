@@ -62,7 +62,7 @@ begin
   Result := False;
   if RegGetValueNames(HKLM64, 'SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.WindowsDesktop.App', Versions) then
     for I := 0 to GetArrayLength(Versions) - 1 do
-      if Pos('9.0.', Versions[I]) = 1 then Result := True;
+      if Pos('10.0.', Versions[I]) = 1 then Result := True;
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
@@ -72,7 +72,7 @@ begin
   if HasDesktopRuntime then Exit;
   ExtractTemporaryFile('windowsdesktop-runtime-win-x64.exe');
   if not ShellExec('runas', ExpandConstant('{tmp}\windowsdesktop-runtime-win-x64.exe'), '/install /quiet /norestart', '', SW_HIDE, ewWaitUntilTerminated, Code) then
-    Result := 'AcNote requires .NET 9 Desktop Runtime. Please allow its installation and retry.'
+    Result := 'AcNote requires .NET 10 Desktop Runtime. Please allow its installation and retry.'
   else if (Code <> 0) and (Code <> 3010) then
     Result := 'The .NET Desktop Runtime installation failed. Error: ' + IntToStr(Code)
   else if not HasDesktopRuntime then

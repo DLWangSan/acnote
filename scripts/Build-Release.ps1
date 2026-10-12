@@ -1,5 +1,6 @@
 param(
     [string]$Version = '0.1.0',
+    [string]$DotNet = 'dotnet',
     [string]$Iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
     [string]$UpdateSource = '',
     [string]$DownloadBase = 'https://github.com/DLWangSan/acnote/releases/download'
@@ -21,10 +22,10 @@ if (Test-Path -LiteralPath $publish) {
     }
     Remove-Item -LiteralPath $resolvedPublish -Recurse -Force
 }
-dotnet publish (Join-Path $releaseRoot 'src\AcNote.App\AcNote.App.csproj') -c Release -r win-x64 --self-contained false -p:Version=$Version -o $publish
+& $DotNet publish (Join-Path $releaseRoot 'src\AcNote.App\AcNote.App.csproj') -c Release -r win-x64 --self-contained false -p:Version=$Version -o $publish
 if ($LASTEXITCODE -ne 0) { throw 'dotnet publish failed' }
 # The COM add-in is framework dependent and its build output must accompany the app.
-Copy-Item (Join-Path $releaseRoot 'src\AcNote.WordAddin\bin\Release\net9.0-windows\win-x64') (Join-Path $publish 'addin') -Recurse
+Copy-Item (Join-Path $releaseRoot 'src\AcNote.WordAddin\bin\Release\net10.0-windows\win-x64') (Join-Path $publish 'addin') -Recurse
 Get-ChildItem -Path $publish -Filter '*.pdb' -Recurse -File | Remove-Item -Force
 foreach ($required in @('AcNote.App.exe','addin\AcNote.WordAddin.comhost.dll','addin\AcNote.WordAddin.runtimeconfig.json','styles\gb-t-7714-2015-numeric.style')) {
     if (-not (Test-Path (Join-Path $publish $required))) { throw "Missing package file: $required" }
@@ -33,7 +34,7 @@ if ($UpdateSource) {
     if (-not $UpdateSource.StartsWith('https://')) { throw 'UpdateSource must use HTTPS' }
     @{ source=$UpdateSource } | ConvertTo-Json | Set-Content (Join-Path $publish 'updates.json') -Encoding utf8
 }
-$metadata = Invoke-RestMethod 'https://builds.dotnet.microsoft.com/dotnet/release-metadata/9.0/releases.json'
+$metadata = Invoke-RestMethod 'https://builds.dotnet.microsoft.com/dotnet/release-metadata/10.0/releases.json'
 $runtime = $metadata.releases[0].windowsdesktop.files | Where-Object { $_.rid -eq 'win-x64' -and $_.name -like '*.exe' } | Select-Object -First 1
 $runtimePath = Join-Path $cache 'windowsdesktop-runtime-win-x64.exe'
 if (-not (Test-Path $runtimePath) -or (Get-FileHash $runtimePath -Algorithm SHA512).Hash -ne $runtime.hash) {

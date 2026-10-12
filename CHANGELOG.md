@@ -2,6 +2,7 @@
 
 ## 2026-10-12
 
+- 首版升级至 .NET 10 LTS 与 Microsoft.Data.Sqlite 10.0.12，面向公开发布继续获得平台安全更新，并消除旧 SQLite 原生依赖的高危公告。
 - 修复 EndNote 分离式文献库导入：`.enl` 的 `enl_refs` 索引及 `.Data` 内的 PDF 索引不再被误认为文献库，改为定位实际包含 `refs` 表的 `sdb.eni`；读取一致性快照，保留源库，压缩库同样适用。
 - 新建文献库直接建立空库，取消示例文献提示。
 - 新增统一“导入文献”入口（位于新建、打开之后），可选择 EndNote、Zotero、BibTeX/BibLaTeX、RIS、CSL JSON；支持多文件拖入和 Windows“打开方式 → AcNote”。已运行时转交当前窗口，无库时自动建立并记住临时库。
