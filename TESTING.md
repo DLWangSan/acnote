@@ -10,6 +10,7 @@
 
 ## 文献文件与导入
 
+- EndNote 分离式库：`.enl` 只含 `enl_refs`、`.Data/sdb/pdb.eni` 只含 PDF 索引时，应读取 `.Data/sdb/sdb.eni` 的全部非回收站文献；同样的 `.enlx` 压缩库应得到相同结果。已有自动回归用例。
 - 新建文献库不再询问是否加入示例文献。
 - 顶部“新建文献库、打开文献库”之后有“导入文献”，来源可选 EndNote、Zotero、BibTeX/BibLaTeX、RIS、CSL JSON。
 - 把多个 `.bib` / `.ris` / `.enl` / `.enlx` / EndNote `.xml` / CSL `.json` / Zotero `.sqlite` 拖到列表或编辑区域，均应导入当前库；不会把文件路径写进题名编辑框。成功结果只显示在底部状态栏。

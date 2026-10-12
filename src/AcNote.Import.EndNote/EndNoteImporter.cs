@@ -63,8 +63,8 @@ public static class EndNoteImporter
         {
             ZipFile.ExtractToDirectory(path, temp.FullName);
             var enl = Directory.EnumerateFiles(temp.FullName, "*.enl", SearchOption.AllDirectories).FirstOrDefault();
-            var sqlite = Directory.EnumerateFiles(temp.FullName, "*.eni", SearchOption.AllDirectories).FirstOrDefault(IsSqlite)
-                ?? (enl is not null ? ResolveSqlite(enl) : null);
+            var sqlite = (enl is not null ? ResolveSqlite(enl) : null)
+                ?? Directory.EnumerateFiles(temp.FullName, "*.eni", SearchOption.AllDirectories).FirstOrDefault(IsReferenceDatabase);
             if (sqlite is null)
                 throw new InvalidDataException("压缩库里没有可读取的 EndNote 数据。请改用 EndNote XML 导出。");
             return ReadSqlite(sqlite);
@@ -84,28 +84,12 @@ public static class EndNoteImporter
                 "无法读取这个 EndNote 库。EndNote X9.3 及以后的库可以直接导入；更早的库请在 EndNote 中导出为 EndNote XML。");
         }
 
-        var temp = Directory.CreateTempSubdirectory("acnote-enl-");
-        try
-        {
-            var copy = Path.Combine(temp.FullName, Path.GetFileName(sqlite));
-            File.Copy(sqlite, copy, overwrite: true);
-            foreach (var suffix in new[] { "-wal", "-shm" })
-            {
-                var sidecar = sqlite + suffix;
-                if (File.Exists(sidecar))
-                    File.Copy(sidecar, copy + suffix, overwrite: true);
-            }
-            return ReadSqlite(copy);
-        }
-        finally
-        {
-            try { temp.Delete(true); } catch { /* The file may still be open. */ }
-        }
+        return ReadSqlite(sqlite);
     }
 
     private static string? ResolveSqlite(string enlPath)
     {
-        if (IsSqlite(enlPath))
+        if (IsReferenceDatabase(enlPath))
             return enlPath;
 
         var directory = Path.GetDirectoryName(enlPath);
@@ -116,14 +100,36 @@ public static class EndNoteImporter
         if (!Directory.Exists(data))
             return null;
 
-        return Directory.EnumerateFiles(data, "*.eni", SearchOption.AllDirectories).FirstOrDefault(IsSqlite);
+        var standard = Path.Combine(data, "sdb", "sdb.eni");
+        if (IsReferenceDatabase(standard)) return standard;
+        return Directory.EnumerateFiles(data, "*.eni", SearchOption.AllDirectories).FirstOrDefault(IsReferenceDatabase);
+    }
+
+    private static bool IsReferenceDatabase(string path)
+    {
+        if (!IsSqlite(path)) return false;
+        using var connection = OpenReadOnly(path);
+        using var check = connection.CreateCommand();
+        check.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='refs'";
+        return Convert.ToInt32(check.ExecuteScalar()) > 0;
+    }
+
+    private static SqliteConnection OpenReadOnly(string path)
+    {
+        var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        { DataSource = path, Mode = SqliteOpenMode.ReadOnly, Pooling = false }.ToString());
+        try { connection.Open(); return connection; }
+        catch { connection.Dispose(); throw; }
     }
 
     private static ImportResult ReadSqlite(string path)
     {
         var result = new ImportResult();
-        using var connection = new SqliteConnection($"Data Source={path};Mode=ReadOnly");
+        using var source = OpenReadOnly(path);
+        using var connection = new SqliteConnection("Data Source=:memory:");
         connection.Open();
+        // Include committed WAL records in one consistent snapshot without changing the library.
+        source.BackupDatabase(connection);
         foreach (var collation in Collations)
         {
             try { connection.CreateCollation(collation, (left, right) => string.CompareOrdinal(left, right)); }

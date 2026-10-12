@@ -87,6 +87,35 @@ public sealed class ReferenceImporterTests : IDisposable
     }
 
     [Fact]
+    public void EndNote_SplitLibrarySkipsEnlAndPdfIndexesAndImportsEntireLibrary()
+    {
+        var enl = Path.Combine(_directory, "split.enl");
+        var data = Path.Combine(_directory, "split.Data", "sdb");
+        Directory.CreateDirectory(data);
+        void Create(string path, string sql)
+        {
+            using var db = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = path, Pooling = false }.ToString());
+            db.Open(); using var command = db.CreateCommand(); command.CommandText = sql; command.ExecuteNonQuery();
+        }
+        Create(enl, "CREATE TABLE enl_refs(id INTEGER);");
+        Create(Path.Combine(data, "pdb.eni"), "CREATE TABLE pdf_index(id INTEGER);");
+        Create(Path.Combine(data, "sdb.eni"), "CREATE TABLE refs(id INTEGER,title TEXT,author TEXT,year TEXT,trash_state INTEGER); INSERT INTO refs VALUES(1,'First','Smith, John','2020',0),(2,'第二条','张三','2021',0),(3,'Deleted','','',1);");
+        var before = File.ReadAllBytes(Path.Combine(data, "sdb.eni"));
+        var items = EndNoteImporter.Import(enl).Items;
+        Assert.Equal(2, items.Count);
+        Assert.Equal("第二条", items[1].Title);
+        Assert.Equal(before, File.ReadAllBytes(Path.Combine(data, "sdb.eni")));
+        var archive = Path.Combine(_directory, "split.enlx");
+        // Archive outside the fixture folder to avoid including itself.
+        var staging = Path.Combine(_directory, "archive-content");
+        Directory.CreateDirectory(Path.Combine(staging, "split.Data", "sdb"));
+        File.Copy(enl, Path.Combine(staging, "split.enl"));
+        foreach (var file in Directory.GetFiles(data)) File.Copy(file, Path.Combine(staging, "split.Data", "sdb", Path.GetFileName(file)));
+        System.IO.Compression.ZipFile.CreateFromDirectory(staging, archive);
+        Assert.Equal(2, EndNoteImporter.Import(archive).Items.Count);
+    }
+
+    [Fact]
     public void Zotero_ReadsWalSnapshotWithoutChangingSourceAndSkipsTrashAndAttachments()
     {
         var path = Path.Combine(_directory, "zotero.sqlite");
