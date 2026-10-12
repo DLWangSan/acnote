@@ -52,6 +52,7 @@ public sealed class StyleFile
     public string? Group { get; set; }
     public string? Status { get; set; }
     public string? Source { get; set; }
+    public string? Notes { get; set; }
 
     [JsonIgnore]
     public string? FilePath { get; set; }
@@ -71,6 +72,7 @@ public sealed class ResolvedStyle
     public string Version { get; set; } = "";
     public string Status { get; set; } = "";
     public string Source { get; set; } = "";
+    public string Notes { get; set; } = "";
     public string Layout { get; set; } = "numeric";
     public string Group { get; set; } = "";
     public string? FilePath { get; set; }
@@ -83,7 +85,7 @@ public sealed class ResolvedStyle
     public TextLayout CitationFormat { get; } = new();
     public TextLayout BibliographyFormat { get; } = new();
     public BibliographyOptions BibliographyOptions { get; } = new();
-    public string DisplayName => Status == "unverified" ? Name + "（待校验）" : Name;
+    public string DisplayName => Status switch { "unverified" => Name + "（待校验）", "source-reviewed" => Name + "（研究生·依据官方指南）", _ => Name };
 }
 
 public sealed class StyleCatalog
@@ -241,6 +243,7 @@ public sealed class StyleCatalog
 
         result.Name = string.IsNullOrWhiteSpace(leaf.Name) ? leaf.Id ?? "" : leaf.Name;
         result.Version = leaf.Version ?? "";
+        result.Notes = leaf.Notes ?? "";
         result.Status = leaf.Status ?? "";
         result.Source = string.IsNullOrWhiteSpace(leaf.Source) ? result.Source : leaf.Source;
         result.Layout = string.IsNullOrWhiteSpace(leaf.Layout) ? result.Layout : leaf.Layout;
@@ -261,7 +264,7 @@ public sealed class StyleCatalog
         bib.EastAsiaFontFamily ??= "宋体";
         bib.FontSize ??= 10.5;
         bib.HangingIndent ??= 21;
-        bib.LineSpacing ??= 1.25;
+        if (bib.LineSpacingPoints is null) bib.LineSpacing ??= 1.25;
         bib.SpaceBefore ??= 0;
         bib.SpaceAfter ??= 6;
         bib.Alignment ??= "left";

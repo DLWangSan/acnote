@@ -94,12 +94,15 @@ public static class BibliographyFormatter
             "page" => item.Page,
             "publisher" => item.Publisher,
             "publisher-place" => item.PublisherPlace,
-            "doi" => item.Doi,
+            "doi" => CleanDoi(item.Doi),
+            "doi-url" => string.IsNullOrWhiteSpace(item.Doi) ? "" : "https://doi.org/" + CleanDoi(item.Doi),
             "url" => item.Url,
-            _ => "",
+            _ => item.Extra.GetValueOrDefault(field) ?? "",
         };
         return value?.Trim() ?? "";
     }
+
+    private static string CleanDoi(string value) => Regex.Replace(value.Trim(), @"^(?:https?://(?:dx\.)?doi\.org/|doi:\s*)", "", RegexOptions.IgnoreCase);
 
     public static string Tidy(string text)
     {

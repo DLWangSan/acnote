@@ -247,7 +247,7 @@ public class DocumentRefreshTests
         var style = catalog.Get("author-year");
         ReferenceItem Lookup(string id) => id == "zh" ? chinese : english;
         CitationDocument.Refresh(doc, style, Lookup);
-        Assert.StartsWith("张三", bib.Range.Text);
+        Assert.StartsWith("Smith", bib.Range.Text);
         var inline = cite.Range.Text;
         CitationDocument.SetTypography(doc, new() { List = new() { LanguageOrder = "western-first", NumberAuthorYear = true } });
         CitationDocument.Refresh(doc, style, Lookup);
@@ -288,7 +288,8 @@ public class DocumentRefreshTests
             foreach (var culture in new[] { "en-US", "zh-CN" })
             {
                 System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.GetCultureInfo(culture);
-                Assert.Equal(new[] { "zh", "en" }, new BibliographyOptions().Order([en, zh]).Select(i => i.Id));
+                Assert.Equal(new[] { "en", "zh" }, new BibliographyOptions().Order([zh, en]).Select(i => i.Id));
+                Assert.Equal(new[] { "zh", "en" }, new BibliographyOptions { LanguageOrder = "chinese-first" }.Order([en, zh]).Select(i => i.Id));
                 Assert.Equal(new[] { "en", "zh" }, new BibliographyOptions { LanguageOrder = "western-first" }.Order([zh, en]).Select(i => i.Id));
             }
         }

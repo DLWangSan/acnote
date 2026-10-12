@@ -3,5 +3,33 @@
   "name": "中山大学",
   "extends": "gb-t-7714-2015-numeric",
   "group": "university",
-  "status": "unverified"
+  "status": "source-reviewed",
+  "version": "graduate-handbook-acnote-1",
+  "source": "https://lifesciences.sysu.edu.cn/sites/default/files/2025-03/中山大学研究生学位论文格式要求.pdf",
+  "notes": "中山大学《研究生学位论文格式要求》，手册第306—307、311页；官方生命科学学院2025年公开副本。按引用顺序，期刊和图书不强加[J]/[M]。固定行距等未规定部分为软件默认，非全校统一强制值。会议文献缺少国名/月/卷等字段时需补充；学位论文模板可将固定文字改为硕士论文或博士论文。",
+  "bibliographyFormat": { "eastAsiaFontFamily": "宋体", "fontSize": 12, "superscript": false },
+  "bibliographyOptions": { "languageOrder": "chinese-first", "numberAuthorYear": false },
+  "templates": {
+    "article-journal": [
+      { "field": "author", "suffix": ". " }, { "field": "title", "suffix": ". " },
+      { "field": "container-title", "suffix": ", " }, { "field": "year" },
+      { "field": "volume", "prefix": ", " }, { "field": "issue", "prefix": "(", "suffix": ")" },
+      { "field": "page", "prefix": ": " }
+    ],
+    "book": [
+      { "field": "author", "suffix": ". " }, { "field": "title", "suffix": ". " },
+      { "field": "edition", "suffix": ". " }, { "field": "publisher-place", "suffix": ": " },
+      { "field": "publisher" }, { "field": "year", "prefix": ", " }, { "field": "page", "prefix": ". " }
+    ],
+    "thesis": [
+      { "field": "author", "suffix": ". " }, { "field": "title", "suffix": ". " },
+      { "literal": "学位论文. " }, { "field": "publisher" }, { "field": "page", "prefix": ", " }, { "field": "year", "prefix": ". " }
+    ],
+    "paper-conference": [
+      { "field": "author", "suffix": ". " }, { "field": "title", "suffix": ". " },
+      { "field": "container-title", "suffix": ". " }, { "field": "publisher-place", "suffix": ". " },
+      { "field": "country", "suffix": ". " }, { "field": "month", "suffix": ". " },
+      { "field": "year" }, { "field": "volume", "prefix": ". " }
+    ]
+  }
 }

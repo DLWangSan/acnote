@@ -4,6 +4,7 @@
   "version": "2015.1",
   "extends": "gb-t-7714-2015-numeric",
   "layout": "author-year",
+  "bibliographyOptions": { "languageOrder": "western-first", "numberAuthorYear": false },
   "group": "classic",
   "source": "GB/T 7714-2015 著者-出版年制",
   "templates": {

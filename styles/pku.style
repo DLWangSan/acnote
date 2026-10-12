@@ -3,5 +3,11 @@
   "name": "北京大学",
   "extends": "gb-t-7714-2015-numeric",
   "group": "university",
-  "status": "unverified"
+  "status": "source-reviewed",
+  "version": "guide-2018-v2.0-acnote-1",
+  "source": "https://grs.pku.edu.cn/docs/2019-05/20190524160158375113.pdf",
+  "notes": "北京大学研究生学位论文写作指南 V2.0，附录 A.2/A.3。硕博常用文献的顺序编码预设，非学校官方软件认证；院系有具体要求时优先采用。",
+  "bibliographyFormat": { "fontFamily": "Times New Roman", "eastAsiaFontFamily": "宋体", "fontSize": 10.5, "lineSpacingPoints": 16, "spaceBefore": 3, "spaceAfter": 0, "hangingIndent": 21, "alignment": "left", "superscript": false },
+  "citation": { "format": { "superscript": true } },
+  "bibliographyOptions": { "languageOrder": "chinese-first", "numberAuthorYear": false }
 }

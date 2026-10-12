@@ -3,5 +3,11 @@
   "name": "清华大学",
   "extends": "gb-t-7714-2015-numeric",
   "group": "university",
-  "status": "unverified"
+  "status": "source-reviewed",
+  "version": "guide-2025-03-acnote-1",
+  "source": "https://www.dhs.tsinghua.edu.cn/wp-content/uploads/2023/12/2025032107444819.pdf",
+  "notes": "清华大学研究生院《研究生学位论文写作指南》2025年3月，第3章。硕博常用文献的顺序编码预设，非学校官方软件认证；院系或学位项目另有要求时优先采用。",
+  "bibliographyFormat": { "fontFamily": "Times New Roman", "eastAsiaFontFamily": "宋体", "fontSize": 10.5, "lineSpacingPoints": 16, "spaceBefore": 3, "spaceAfter": 0, "hangingIndent": 21, "alignment": "left", "superscript": false },
+  "citation": { "format": { "superscript": true } },
+  "bibliographyOptions": { "languageOrder": "chinese-first", "numberAuthorYear": false }
 }

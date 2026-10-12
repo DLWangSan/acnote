@@ -46,7 +46,7 @@ internal sealed class TypographyDialog : Form
         var options = new FlowLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(16), FlowDirection = FlowDirection.TopDown, WrapContents = false };
         options.Controls.Add(new Label { Text = "作者—年份列表的文种顺序", AutoSize = true });
         _languageOrder = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 380 };
-        _languageOrder.Items.AddRange(["跟随版式（默认中文优先）", "中文优先", "西文优先（含英文）", "不分文种，按作者排序"]);
+        _languageOrder.Items.AddRange(["跟随版式（通用版式默认西文优先）", "中文优先", "西文优先（含英文）", "不分文种，按作者排序"]);
         _languageOrder.SelectedIndex = current.List.LanguageOrder switch { "chinese-first" => 1, "western-first" => 2, "mixed" => 3, _ => 0 };
         options.Controls.Add(_languageOrder);
         options.Controls.Add(new Label { Text = "作者—年份列表的辅助序号", AutoSize = true, Margin = new Padding(3, 20, 3, 3) });
@@ -95,7 +95,9 @@ internal sealed class TypographyDialog : Form
                 .Select(n => new Choice(n switch { 9 => "小五 · 9 磅", 10.5 => "五号 · 10.5 磅", 12 => "小四 · 12 磅", 14 => "四号 · 14 磅", 16 => "三号 · 16 磅", _ => $"{n} 磅" }, n)), initial.FontSize);
             _superscript = Add("文字位置", [new("正常", false), new("上标", true)], initial.Superscript);
             if (!paragraph) return;
-            _line = Add("行距", new double[] { 1, 1.15, 1.25, 1.5, 2, 2.5, 3 }.Select(n => new Choice($"{n} 倍", n)), initial.LineSpacing);
+            _line = Add("行距", new double[] { 1, 1.15, 1.25, 1.5, 2, 2.5, 3 }.Select(n => new Choice($"{n} 倍", n))
+                .Concat(new double[] { 12, 16, 18, 20, 22, 24, 28 }.Select(n => new Choice($"固定 {n} 磅", -n))),
+                initial.LineSpacingPoints is double fixedPoints ? -fixedPoints : initial.LineSpacing);
             var spacing = new double[] { 0, 3, 6, 9, 12, 18, 21, 24, 36, 48 }.Select(n => new Choice(n == 21 ? "21 磅（五号字约两字）" : n == 36 ? "36 磅（0.5 英寸）" : $"{n} 磅", n)).ToArray();
             _before = Add("段前间距", spacing, initial.SpaceBefore);
             _after = Add("段后间距", spacing, initial.SpaceAfter);
@@ -127,7 +129,8 @@ internal sealed class TypographyDialog : Form
         {
             FontFamily = (string?)Selected(_font), EastAsiaFontFamily = (string?)Selected(_eastAsian),
             FontSize = (double?)Selected(_size), Superscript = (bool?)Selected(_superscript),
-            LineSpacing = (double?)Selected(_line), SpaceBefore = (double?)Selected(_before),
+            LineSpacing = Selected(_line) is double line && line > 0 ? line : null,
+            LineSpacingPoints = Selected(_line) is double fixedLine && fixedLine < 0 ? -fixedLine : null, SpaceBefore = (double?)Selected(_before),
             SpaceAfter = (double?)Selected(_after), HangingIndent = (double?)Selected(_indent),
             Alignment = (string?)Selected(_alignment)
         };

@@ -21,7 +21,7 @@ public sealed class BibliographyOptions
 
     public static BibliographyOptions Resolve(BibliographyOptions style, BibliographyOptions document)
     {
-        var result = new BibliographyOptions { LanguageOrder = "chinese-first", NumberAuthorYear = false };
+        var result = new BibliographyOptions { LanguageOrder = "western-first", NumberAuthorYear = false };
         result.Merge(style); result.Merge(document); result.Validate();
         return result;
     }
@@ -51,7 +51,7 @@ public sealed class BibliographyOptions
             "" or "auto" => LanguageDetector.Resolve(item) == "zh" ? 0 : 2,
             _ => 4
         };
-        return LanguageOrder == "western-first" ? rank switch { 2 => 0, 0 => 1, 1 => 2, _ => rank } : rank;
+        return (LanguageOrder ?? "western-first") == "western-first" ? rank switch { 2 => 0, 0 => 1, 1 => 2, _ => rank } : rank;
     }
 
     private static string AuthorKey(ReferenceItem item)

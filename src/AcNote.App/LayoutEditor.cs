@@ -24,6 +24,7 @@ public sealed class LayoutEditor : StackPanel
         Children.Add(_superscript);
         if (!paragraph) return;
         Add("lineSpacing", "行距 / 倍数（0.5–5）", format.LineSpacing);
+        Add("lineSpacingPoints", "固定行距 / 磅（填写后优先于倍数）", format.LineSpacingPoints);
         Add("spaceBefore", "段前 / 磅", format.SpaceBefore);
         Add("spaceAfter", "段后 / 磅", format.SpaceAfter);
         Add("hangingIndent", "悬挂缩进 / 磅", format.HangingIndent);

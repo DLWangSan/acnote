@@ -22,6 +22,7 @@ public sealed class StyleEditorWindow : Window
     private readonly LayoutEditor _citationLayout;
     private readonly LayoutEditor _bibliographyLayout;
     private readonly PunctuationEditor _punctuation;
+    private readonly TemplateEditor _templates;
 
     public StyleEditorWindow(string json, ResolvedStyle resolved)
     {
@@ -30,6 +31,7 @@ public sealed class StyleEditorWindow : Window
         _citationLayout = new LayoutEditor(resolved.CitationFormat, false);
         _bibliographyLayout = new LayoutEditor(resolved.BibliographyFormat, true);
         _punctuation = new PunctuationEditor(resolved.CitationPunctuation);
+        _templates = new TemplateEditor(resolved);
         Width = 820;
         Height = 720;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -69,7 +71,11 @@ public sealed class StyleEditorWindow : Window
             TextWrapping = TextWrapping.NoWrap,
             Text = json,
         };
-        _editor.LostFocus += (_, _) => ReadRules(_editor.Text);
+        _editor.LostFocus += (_, _) =>
+        {
+            ReadRules(_editor.Text);
+            try { _templates.Load(_editor.Text); } catch (JsonException) { /* Save reports malformed JSON. */ }
+        };
         foreach (var box in new[] { _bibMin, _bibFirst, _bibZh, _bibEn, _citeMin, _citeFirst, _citeZh, _citeEn })
             box.TextChanged += (_, _) => WriteRulesIntoJson();
 
@@ -80,13 +86,27 @@ public sealed class StyleEditorWindow : Window
         _syncing = false;
         root.Children.Add(buttons);
         var tabs = new TabControl();
+        tabs.Items.Add(new TabItem { Header = "文献字段与预览", Content = _templates });
         var authorPanel = new DockPanel();
+        var provenance = new TextBlock { Text = resolved.Source, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8) };
+        DockPanel.SetDock(provenance, Dock.Top); authorPanel.Children.Add(provenance);
         authorPanel.Children.Add(rules);
         authorPanel.Children.Add(_editor);
-        tabs.Items.Add(new TabItem { Header = "作者与版式规则", Content = authorPanel });
+        tabs.Items.Add(new TabItem { Header = "作者与高级规则", Content = authorPanel });
         tabs.Items.Add(new TabItem { Header = "文中字体", Content = new ScrollViewer { Content = _citationLayout } });
         tabs.Items.Add(new TabItem { Header = "引文标点与空格", Content = new ScrollViewer { Content = _punctuation } });
         tabs.Items.Add(new TabItem { Header = "文末字体与段落", Content = new ScrollViewer { Content = _bibliographyLayout } });
+        tabs.SelectionChanged += (_, e) =>
+        {
+            if (!ReferenceEquals(e.Source, tabs) || tabs.SelectedIndex != 1) return;
+            try
+            {
+                var node = JsonNode.Parse(_editor.Text)!.AsObject();
+                node["templates"] = _templates.Read();
+                _editor.Text = node.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+            }
+            catch (JsonException) { /* Preserve incomplete advanced edits. */ }
+        };
         root.Children.Add(tabs);
         Content = root;
     }
@@ -102,6 +122,8 @@ public sealed class StyleEditorWindow : Window
             WriteRulesIntoJson();
             var node = JsonNode.Parse(_editor.Text)!.AsObject();
             node["bibliographyFormat"] = _bibliographyLayout.Read();
+            node["templates"] = _templates.Read();
+            node["status"] = "custom";
             var citation = node["citation"] as JsonObject ?? new JsonObject();
             citation["format"] = _citationLayout.Read();
             citation["punctuation"] = _punctuation.Read();

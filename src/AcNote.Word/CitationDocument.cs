@@ -495,6 +495,7 @@ public static class CitationDocument
         dynamic p = range.ParagraphFormat;
         p.Reset();
         if (format.LineSpacing is double line) { p.LineSpacingRule = 5; p.LineSpacing = (float)(12 * line); }
+        if (format.LineSpacingPoints is double points) { p.LineSpacingRule = 4; p.LineSpacing = (float)points; }
         if (format.SpaceBefore is double before) p.SpaceBefore = (float)before;
         if (format.SpaceAfter is double after) p.SpaceAfter = (float)after;
         if (format.HangingIndent is double indent) { p.LeftIndent = (float)indent; p.FirstLineIndent = (float)-indent; }
