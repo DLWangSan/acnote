@@ -81,6 +81,30 @@ public static class EndNoteImporter
         return result;
     }
 
+    public static List<string> ExtractCitationRecordNumbers(string fieldCode)
+    {
+        var decoded = System.Net.WebUtility.HtmlDecode(fieldCode ?? "");
+        var numbers = System.Text.RegularExpressions.Regex.Matches(decoded,
+                "<(?:rec-number|recnum)\\b[^>]*>(.*?)</(?:rec-number|recnum)\\s*>",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Singleline)
+            .Select(match => System.Text.RegularExpressions.Regex.Replace(match.Groups[1].Value, "<[^>]+>", "").Trim())
+            .Where(value => value.Length > 0)
+            .ToList();
+
+        // EndNote's unformatted citations use temporary citation text such as
+        // {Smith, 2020 #25}; those fields have no XML RecNum element to read.
+        if (numbers.Count == 0)
+        {
+            foreach (System.Text.RegularExpressions.Match citation in System.Text.RegularExpressions.Regex.Matches(decoded, "\\{[^{}]*\\}"))
+            {
+                numbers.AddRange(System.Text.RegularExpressions.Regex.Matches(citation.Value, "#\\s*(\\d+)")
+                    .Select(match => match.Groups[1].Value));
+            }
+        }
+
+        return numbers.Distinct(StringComparer.Ordinal).ToList();
+    }
+
     private static ImportResult ReadCompressed(string path)
     {
         var temp = Directory.CreateTempSubdirectory("acnote-enlx-");

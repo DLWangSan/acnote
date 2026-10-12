@@ -105,4 +105,20 @@ public class EndNoteImporterTests
         Assert.Equal("10.1234/demo", item.Doi);
         Assert.Equal("Wang", item.Authors[0].Family);
     }
+
+    [Fact]
+    public void UnformattedCitation_ExtractsRecordNumbersFromTemporaryCitationSyntax()
+    {
+        var numbers = EndNoteImporter.ExtractCitationRecordNumbers("ADDIN EN.CITE {Smith, 2020 #25; Wang, 2022 #31}");
+
+        Assert.Equal(new[] { "25", "31" }, numbers);
+    }
+
+    [Fact]
+    public void FormattedCitation_ExtractsRecordNumbersFromXmlTags()
+    {
+        var numbers = EndNoteImporter.ExtractCitationRecordNumbers("ADDIN EN.CITE <EndNote><Cite><RecNum>25</RecNum><record><rec-number>25</rec-number></record></Cite></EndNote>");
+
+        Assert.Equal(new[] { "25" }, numbers);
+    }
 }

@@ -209,6 +209,7 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
             using var picker = new OpenFileDialog { Title = "选择对应的 EndNote 文献库（.enl / .enlx / XML）", Filter = "EndNote 文献库|*.enl;*.enlx;*.xml|所有文件|*.*" };
             if (picker.ShowDialog() != DialogResult.OK) return;
             var fromLibrary = EndNoteImporter.Import(picker.FileName);
+            Log($"endnote-copy selected-library path={picker.FileName} records={fromLibrary.Items.Count} warnings={fromLibrary.Warnings.Count}");
             imported.Items.AddRange(fromLibrary.Items);
             imported.Warnings.AddRange(fromLibrary.Warnings);
             foreach (var record in fromLibrary.Items
@@ -314,11 +315,7 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
         Dialogs.Info($"已创建 AcNote 副本：\n{copyPath}\n\n已导入 {store.Count()} 条文献记录。原文件保持不变。\n\n若原 EndNote 库含有文中未引用的其他记录，它们不包含在 Word 文档里；需要完整迁移时请另行导入 .enl 文献库。");
     }
 
-    private static List<string> RecordNumbers(string fieldCode) =>
-        System.Text.RegularExpressions.Regex.Matches(System.Net.WebUtility.HtmlDecode(fieldCode),
-                "<(?:rec-number|recnum)\\b[^>]*>(.*?)</(?:rec-number|recnum)\\s*>", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Singleline)
-            .Select(match => System.Text.RegularExpressions.Regex.Replace(match.Groups[1].Value, "<[^>]+>", "").Trim())
-            .Where(value => value.Length > 0).Distinct(StringComparer.Ordinal).ToList();
+    private static List<string> RecordNumbers(string fieldCode) => EndNoteImporter.ExtractCitationRecordNumbers(fieldCode);
 
     public void OnConvertNarrative(object control) => ConvertCitation("narrative");
     public void OnConvertParenthetical(object control) => ConvertCitation("author-year");
