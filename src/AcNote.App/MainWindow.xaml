@@ -27,6 +27,7 @@
    <Border Background="#F5F8FB" BorderBrush="#E2E8F0" BorderThickness="0,0,1,0">
     <DockPanel Margin="14,24">
      <StackPanel DockPanel.Dock="Bottom">
+      <Button Content="检查更新" Click="CheckUpdates_Click" Margin="0,0,0,16"/>
       <TextBlock Text="版式管理" Foreground="#718096" Margin="8,0,0,12"/>
       <Button Content="编辑版式与字体" Click="EditStyle_Click" Margin="0,0,0,8"/>
       <Button Content="导入版式" Click="ImportStyle_Click" Margin="0"/>

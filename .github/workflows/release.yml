@@ -1,0 +1,40 @@
+name: Windows release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  windows-installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - name: Install Inno Setup
+        shell: powershell
+        run: choco install innosetup --no-progress -y
+      - name: Build installer and update manifest
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME.TrimStart('v')
+          ./scripts/Build-Release.ps1 -Version $version -Iscc "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+      - name: Publish GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = $env:GITHUB_REF_NAME.TrimStart('v')
+          $artifacts = "artifacts/$version"
+          gh release create $env:GITHUB_REF_NAME `
+            "$artifacts/AcNote-Setup-$version-win-x64.exe" `
+            "$artifacts/SHA256SUMS.txt" `
+            "$artifacts/latest.json" `
+            --title "AcNote $version" `
+            --generate-notes `
+            --verify-tag

@@ -48,6 +48,7 @@ public partial class MainWindow : Window
     }
 
     public void SetWordStatus(string text) => WordStatusText.Text = text;
+    private void CheckUpdates_Click(object sender, RoutedEventArgs e) => new UpdateWindow { Owner = this }.ShowDialog();
 
     public void SaveShown() => Save(_shownId);
 

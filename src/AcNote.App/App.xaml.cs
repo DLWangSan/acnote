@@ -12,6 +12,12 @@ public partial class App : Application
 
     private void OnStartup(object sender, StartupEventArgs e)
     {
+        if (e.Args.Contains("--unregister", StringComparer.OrdinalIgnoreCase))
+        {
+            try { WordAddinRegistrar.Unregister(); Shutdown(0); }
+            catch { Shutdown(1); }
+            return;
+        }
         try { FileAssociations.Register(); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
         // Allow updating registration without opening a second library window or
         // letting the single-instance redirect silently keep an old installation.

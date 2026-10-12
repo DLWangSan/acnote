@@ -9,6 +9,31 @@ public static class WordAddinRegistrar
     public static readonly Guid Clsid = new("C4A1E0B7-7E2D-4C5A-9F10-6D2B8A1E0C33");
     public const string ProgId = "AcNote.Connect";
 
+    public static void Unregister()
+    {
+        using var app = Registry.CurrentUser.OpenSubKey(@"Software\AcNote");
+        if (!string.Equals(app?.GetValue("AppPath") as string, Environment.ProcessPath, StringComparison.OrdinalIgnoreCase)) return;
+        foreach (var path in new[]
+        {
+            @"Software\Microsoft\Office\Word\Addins\" + ProgId,
+            @"Software\Classes\CLSID\" + Clsid.ToString("B"),
+            @"Software\Classes\" + ProgId,
+            @"Software\Classes\Applications\AcNote.App.exe",
+            @"Software\Classes\AcNote.Reference",
+        }) Registry.CurrentUser.DeleteSubKeyTree(path, false);
+        foreach (var extension in AcNote.Import.EndNote.ReferenceImporter.Extensions.Append(".acnote"))
+        {
+            using var key = Registry.CurrentUser.OpenSubKey($@"Software\Classes\{extension}\OpenWithProgids", true);
+            key?.DeleteValue("AcNote.Reference", false);
+        }
+        foreach (var path in new[] { @"Software\Kingsoft\Office\WPS\AddinsWL", @"Software\Microsoft\Office\16.0\Word\Resiliency\DoNotDisableAddinList" })
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(path, true); key?.DeleteValue(ProgId, false);
+        }
+        using var own = Registry.CurrentUser.OpenSubKey(@"Software\AcNote", true);
+        own?.DeleteValue("AppPath", false); own?.DeleteValue("ComHostPath", false);
+    }
+
     public static string TryRegister()
     {
         var bundled = Path.Combine(AppContext.BaseDirectory, "addin");
