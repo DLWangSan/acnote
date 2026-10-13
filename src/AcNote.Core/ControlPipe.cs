@@ -28,6 +28,10 @@ public static class ControlPipe
             {
                 Thread.Sleep(delayMs);
             }
+            catch (UnauthorizedAccessException)
+            {
+                Thread.Sleep(delayMs);
+            }
         }
 
         return null;

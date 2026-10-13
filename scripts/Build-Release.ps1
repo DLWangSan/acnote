@@ -1,5 +1,5 @@
 param(
-    [string]$Version = '0.1.13',
+    [string]$Version = '0.1.14',
     [string]$DotNet = 'dotnet',
     [string]$Iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
     [string]$RuntimeInstaller = '',
@@ -26,12 +26,15 @@ if (Test-Path -LiteralPath $publish) {
 }
 & $DotNet publish (Join-Path $releaseRoot 'src\AcNote.App\AcNote.App.csproj') -c Release -r win-x64 --self-contained false -m:1 -p:Version=$Version -o $publish
 if ($LASTEXITCODE -ne 0) { throw 'dotnet publish failed' }
+& $DotNet publish (Join-Path $releaseRoot 'src\AcNote.Mcp\AcNote.Mcp.csproj') -c Release -r win-x64 --self-contained false -m:1 -p:Version=$Version -o $publish
+if ($LASTEXITCODE -ne 0) { throw 'AcNote MCP publish failed' }
+Copy-Item (Join-Path $releaseRoot 'integrations\codex') (Join-Path $publish 'codex') -Recurse
 # The COM add-in is framework dependent and its build output must accompany the app.
 Copy-Item (Join-Path $releaseRoot 'src\AcNote.WordAddin\bin\Release\net10.0-windows\win-x64') (Join-Path $publish 'addin') -Recurse
 & $DotNet publish (Join-Path $releaseRoot 'src\AcNote.WordAddin\AcNote.WordAddin.csproj') -c Release -r win-x86 --self-contained false -m:1 -p:Version=$Version -o (Join-Path $publish 'addin-x86')
 if ($LASTEXITCODE -ne 0) { throw '32-bit Word/WPS add-in publish failed' }
 Get-ChildItem -Path $publish -Filter '*.pdb' -Recurse -File | Remove-Item -Force
-foreach ($required in @('AcNote.App.exe','addin\AcNote.WordAddin.comhost.dll','addin\AcNote.WordAddin.runtimeconfig.json','addin-x86\AcNote.WordAddin.comhost.dll','addin-x86\AcNote.WordAddin.runtimeconfig.json','styles\gb-t-7714-2015-numeric.style')) {
+foreach ($required in @('AcNote.App.exe','AcNote.Mcp.exe','codex\Install-Codex.ps1','codex\skills\acnote\SKILL.md','addin\AcNote.WordAddin.comhost.dll','addin\AcNote.WordAddin.runtimeconfig.json','addin-x86\AcNote.WordAddin.comhost.dll','addin-x86\AcNote.WordAddin.runtimeconfig.json','styles\gb-t-7714-2015-numeric.style')) {
     if (-not (Test-Path (Join-Path $publish $required))) { throw "Missing package file: $required" }
 }
 if ($UpdateSource) {

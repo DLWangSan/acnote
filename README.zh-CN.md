@@ -67,6 +67,18 @@ Author-Year 的文中引用用姓：`(袁隆平, 1966)`、`(Watson and Crick, 19
 
 插件使用 Word 与 WPS 都支持的 CustomUI 基础命名空间。安装包同时包含 64 位和 32 位 COM 插件，并分别登记对应的 Office/WPS 注册表视图；安装器会补齐缺少的 .NET 10 x64/x86 Desktop Runtime。安装前会等待用户关闭 Word/WPS 后再继续。主程序侧栏的“检查/修复 Word、WPS 插件”可以重新检查并修复注册。Office 只会在启动时加载插件；安装或修复后，请保存文档并完全退出所有 Word 与 WPS 进程再重开。若仍未显示，可检查 `%AppData%\AcNote\word-registration.log` 中的实际 COM 路径。
 
+### Codex 与 MCP
+
+安装包包含本机 `AcNote.Mcp.exe` 和 `acnote` Skill。它们让 Codex 通过正在运行的 AcNote 使用当前打开的文献库，并在当前 Word 文档中检索、核对、插入和更新 AcNote 引用；不会另建文献库，也不会让 Codex 直接修改 `.acnote` 数据库。
+
+安装 AcNote 后，在 PowerShell 中运行：
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\AcNote\codex\Install-Codex.ps1"
+```
+
+脚本会把 Skill 安装到 Codex 的 skills 目录，并用 `codex mcp add` 登记本机 MCP 服务。重启 Codex 后，先启动 AcNote、打开目标文献库和 Word 文档，再让 Codex 查找或插入引用。正文定位支持当前光标，也支持在唯一的精确文本锚点之前或之后插入；锚点有歧义时会拒绝写入。
+
 ### 导入
 
 可以导入 EndNote X9.3 及以后的 `.enl`、压缩的 `.enlx`，以及 EndNote XML。只读，不改原来的库。更早的 EndNote 库请先导出 XML。

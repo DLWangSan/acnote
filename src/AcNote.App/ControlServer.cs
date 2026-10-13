@@ -2,6 +2,7 @@ using System.IO.Pipes;
 using System.Text;
 using System.Text.Json;
 using AcNote.Core;
+using AcNote.Word;
 
 namespace AcNote.App;
 
@@ -97,6 +98,16 @@ public sealed class ControlServer : IDisposable
                 "pick" => OnUi(() => Pick(form, document.RootElement.TryGetProperty("ids", out var ids) ? ids.EnumerateArray().Select(id => id.GetString() ?? "").ToList() : [])),
                 "choose-style" => OnUi(ChooseStyle),
                 "edit-style" => OnUi(() => EditStyle(document.RootElement.TryGetProperty("styleId", out var style) ? style.GetString() : null)),
+                "ai-status" => OnUi(AiStatus),
+                "ai-search-references" => OnUi(() => AiSearch(
+                    Text(document.RootElement, "query"), Number(document.RootElement, "limit", 10))),
+                "ai-get-references" => OnUi(() => AiGetReferences(Strings(document.RootElement, "ids"))),
+                "ai-word-context" => OnUi(() => AiWordContext(Number(document.RootElement, "radius", 500))),
+                "ai-insert-citation" => OnUi(() => AiInsertCitation(
+                    Strings(document.RootElement, "ids"), Text(document.RootElement, "form", "parenthetical"),
+                    Text(document.RootElement, "placement", "selection"), Text(document.RootElement, "anchor"),
+                    Number(document.RootElement, "occurrence", 0))),
+                "ai-update-citations" => OnUi(AiUpdateCitations),
                 _ => Fail("未知命令"),
             };
         }
@@ -139,6 +150,197 @@ public sealed class ControlServer : IDisposable
             return "{\"ok\":false,\"cancelled\":true}";
         return JsonSerializer.Serialize(new { ok = true, styleId = dialog.SelectedStyleId });
     }
+
+    private string AiStatus()
+    {
+        var word = RunningWord.TryGet();
+        string? documentName = null;
+        string? documentPath = null;
+        if (word is not null)
+        {
+            try
+            {
+                dynamic app = word;
+                documentName = (string)app.ActiveDocument.Name;
+                documentPath = (string)app.ActiveDocument.FullName;
+            }
+            catch { /* Word is open without a document. */ }
+        }
+        return JsonSerializer.Serialize(new
+        {
+            ok = true,
+            libraryOpen = _session.Store is not null,
+            libraryPath = _session.LibraryPath,
+            referenceCount = _session.Store?.Count() ?? 0,
+            style = new { id = _session.StyleId, name = _session.CurrentStyle.Name },
+            wordRunning = word is not null,
+            documentName,
+            documentPath,
+        });
+    }
+
+    private string AiSearch(string query, int limit)
+    {
+        var store = RequireStore();
+        if (string.IsNullOrWhiteSpace(query)) return Fail("检索词不能为空。");
+        limit = Math.Clamp(limit, 1, 50);
+        var terms = query.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var matches = store.List()
+            .Select(item => new { Item = item, Text = SearchText(item) })
+            .Where(x => terms.All(term => x.Text.Contains(term, StringComparison.OrdinalIgnoreCase)))
+            .Take(limit)
+            .Select(x => ReferenceResult(x.Item));
+        return JsonSerializer.Serialize(new { ok = true, query, results = matches });
+    }
+
+    private string AiGetReferences(IReadOnlyList<string> ids)
+    {
+        var store = RequireStore();
+        if (ids.Count == 0) return Fail("至少需要一个文献 ID。");
+        var missing = new List<string>();
+        var records = new List<object>();
+        foreach (var id in ids.Distinct(StringComparer.Ordinal))
+        {
+            var item = store.Find(id);
+            if (item is null) missing.Add(id);
+            else records.Add(ReferenceResult(item));
+        }
+        return JsonSerializer.Serialize(new { ok = true, records, missingIds = missing });
+    }
+
+    private object ReferenceResult(ReferenceItem item) => new
+    {
+        item.Id,
+        item.Type,
+        item.Title,
+        item.Authors,
+        item.Year,
+        item.ContainerTitle,
+        item.Volume,
+        item.Issue,
+        item.Page,
+        item.Publisher,
+        item.PublisherPlace,
+        item.Doi,
+        item.Url,
+        item.Language,
+        item.SourceKey,
+        item.Extra,
+        formatted = BibliographyFormatter.Format(item, _session.CurrentStyle).Text,
+        missingFields = MissingFieldChecker.Check(item, _session.CurrentStyle),
+    };
+
+    private string AiWordContext(int radius)
+    {
+        dynamic app = RequireWord();
+        dynamic document = app.ActiveDocument;
+        dynamic selection = app.Selection;
+        radius = Math.Clamp(radius, 100, 2000);
+        var start = (int)selection.Range.Start;
+        var end = (int)selection.Range.End;
+        var contentEnd = Math.Max(0, (int)document.Content.End - 1);
+        var contextStart = Math.Max(0, start - radius);
+        var contextEnd = Math.Min(contentEnd, end + radius);
+        dynamic context = document.Range(contextStart, contextEnd);
+        return JsonSerializer.Serialize(new
+        {
+            ok = true,
+            document = new { name = (string)document.Name, path = (string)document.FullName },
+            selection = new { start, end, text = CleanWordText((string)selection.Range.Text) },
+            context = new { start = contextStart, end = contextEnd, text = CleanWordText((string)context.Text) },
+            boundLibraryPath = CitationDocument.GetLibraryPath(document),
+            styleId = CitationDocument.GetStyleId(document),
+        });
+    }
+
+    private string AiInsertCitation(IReadOnlyList<string> ids, string form, string placement, string anchor, int occurrence)
+    {
+        var store = RequireStore();
+        if (ids.Count == 0) return Fail("至少需要一个文献 ID。");
+        if (ids.Any(id => store.Find(id) is null)) return Fail("一个或多个文献 ID 不在当前文献库中。");
+        if (form is not ("parenthetical" or "narrative")) return Fail("form 只能是 parenthetical 或 narrative。");
+        if (placement is not ("selection" or "before" or "after")) return Fail("placement 只能是 selection、before 或 after。");
+
+        dynamic app = RequireWord();
+        dynamic document = app.ActiveDocument;
+        dynamic selection = app.Selection;
+        if (placement != "selection")
+        {
+            if (string.IsNullOrEmpty(anchor)) return Fail("按正文定位时必须提供 anchor。");
+            var positions = ExactMatches((string)document.Content.Text, anchor);
+            if (positions.Count == 0) return Fail("当前 Word 文档中没有找到完全一致的 anchor。");
+            if (occurrence == 0 && positions.Count != 1) return Fail($"anchor 在文档中出现 {positions.Count} 次；请提供 occurrence 明确指定第几处。");
+            var selectedOccurrence = occurrence == 0 ? 1 : occurrence;
+            if (selectedOccurrence < 1 || selectedOccurrence > positions.Count) return Fail("occurrence 超出 anchor 出现次数。");
+            var position = positions[selectedOccurrence - 1] + (placement == "after" ? anchor.Length : 0);
+            selection.SetRange(position, position);
+        }
+        else if ((int)selection.Range.Start != (int)selection.Range.End)
+        {
+            return Fail("为避免覆盖正文，请把 Word 选择折叠为光标，或使用 before/after + anchor 定位。");
+        }
+
+        object wordDocument = document;
+        var styleId = CitationDocument.GetStyleId(wordDocument);
+        var style = _session.Catalog.Get(string.IsNullOrWhiteSpace(styleId) ? _session.StyleId : styleId);
+        CitationDocument.BindLibrary(wordDocument, _session.LibraryPath!);
+        CitationDocument.InsertAndRefresh(wordDocument, (object)selection, ids, form, style, store.Find);
+        return JsonSerializer.Serialize(new { ok = true, insertedIds = ids, form, placement, document = (string)document.Name });
+    }
+
+    private string AiUpdateCitations()
+    {
+        var store = RequireStore();
+        dynamic app = RequireWord();
+        dynamic document = app.ActiveDocument;
+        object wordDocument = document;
+        var bound = CitationDocument.GetLibraryPath(wordDocument);
+        if (string.IsNullOrWhiteSpace(bound)) CitationDocument.BindLibrary(wordDocument, _session.LibraryPath!);
+        else if (!string.Equals(Path.GetFullPath(bound), Path.GetFullPath(_session.LibraryPath!), StringComparison.OrdinalIgnoreCase))
+            return Fail("当前 Word 文档绑定的是另一份文献库，请先在 AcNote 中打开该库：" + bound);
+        var styleId = CitationDocument.GetStyleId(wordDocument);
+        var style = _session.Catalog.Get(string.IsNullOrWhiteSpace(styleId) ? _session.StyleId : styleId);
+        CitationDocument.Refresh(wordDocument, style, store.Find);
+        return JsonSerializer.Serialize(new { ok = true, document = (string)document.Name, styleId = style.Id });
+    }
+
+    private LibraryStore RequireStore() => _session.Store ?? throw new InvalidOperationException("请先在 AcNote 中打开文献库。");
+
+    private static dynamic RequireWord() => RunningWord.TryGet() ?? throw new InvalidOperationException("请先打开 Word 文档。");
+
+    private static string SearchText(ReferenceItem item) => string.Join('\n', new[]
+    {
+        item.Title, item.ContainerTitle, item.Year, item.Doi, item.Url, item.SourceKey,
+        string.Join(' ', item.Authors.Select(author => $"{author.Family} {author.Given} {author.Literal}")),
+        string.Join(' ', item.Extra.Select(pair => $"{pair.Key} {pair.Value}")),
+    });
+
+    private static List<int> ExactMatches(string text, string value)
+    {
+        var result = new List<int>();
+        var start = 0;
+        while (start <= text.Length - value.Length)
+        {
+            var index = text.IndexOf(value, start, StringComparison.Ordinal);
+            if (index < 0) break;
+            result.Add(index);
+            start = index + Math.Max(1, value.Length);
+        }
+        return result;
+    }
+
+    private static string CleanWordText(string value) => value.Replace('\r', '\n').Replace("\a", "");
+
+    private static string Text(JsonElement root, string name, string fallback = "") =>
+        root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() ?? fallback : fallback;
+
+    private static int Number(JsonElement root, string name, int fallback) =>
+        root.TryGetProperty(name, out var value) && value.TryGetInt32(out var result) ? result : fallback;
+
+    private static List<string> Strings(JsonElement root, string name) =>
+        root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Array
+            ? value.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String).Select(x => x.GetString() ?? "").Where(x => x.Length > 0).ToList()
+            : [];
 
     private string OnUi(Func<string> action) => _window.Dispatcher.Invoke(action);
 
