@@ -111,17 +111,14 @@ flowchart TD
 
 在按某一套版式写学位论文或期刊稿，而且参考文献里中英文都有的时候用。不做 PDF 阅读，也不做检索、推荐和批注。
 
-## 运行
+## 快速开始
 
-普通用户请从 [GitHub Releases](https://github.com/DLWangSan/acnote/releases) 下载 Windows x64 安装包。安装程序会先检查 .NET 10 Desktop Runtime；缺少时会提示并启动微软签名的 Runtime 安装程序，完成后继续安装 AcNote。Release 也会单独附上 Runtime 安装程序及 SHA-256 校验文件，方便离线部署。当前版本要求 64 位 Windows。
+1. 从 [GitHub Releases](https://github.com/DLWangSan/acnote/releases) 下载最新的 **Windows x64 安装包**。
+2. 运行安装程序。它会检查 .NET 10 Desktop Runtime，缺少时会提示并引导安装；安装过程中按提示关闭 Word 和 WPS。
+3. 首次启动 AcNote 后，完全退出并重新打开 Word 或 WPS，让插件功能区加载。
+4. 在 AcNote 中新建或打开 `.acnote` 文献库，选择文献，再从 Word/WPS 的 AcNote 功能区插入和更新引用。
 
-从源码运行请安装 [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)，然后：
-
-```powershell
-dotnet run --project src/AcNote.App
-```
-
-第一次运行会把自带版式复制到 `%AppData%\AcNote\styles`，并登记 Word/WPS 功能区。之后请重启对应的文字处理程序。在工具栏里新建或打开 `.acnote` 文献库。
+AcNote 目前要求 64 位 Windows。如果功能区没有出现，可在 AcNote 中使用“检查/修复 Word、WPS 插件”，然后重启文字处理程序。
 
 ## 参与
 
@@ -141,14 +138,19 @@ dotnet run --project src/AcNote.App
 
 </div>
 
-## 开发验证
+<details>
+<summary>从源码构建与验证</summary>
+
+安装 [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)，然后运行：
 
 ```powershell
+dotnet run --project src/AcNote.App
 dotnet build AcNote.sln -c Release
 dotnet test AcNote.sln -c Release
 ```
 
-安装了桌面 Word 的 Windows 环境还可手动运行 `dotnet run --project tests/AcNote.Word.Smoke`。它创建自己的临时文档，验证分段、重复刷新、消歧、字体段落、多篇插入和引用移除；不属于默认单元测试。功能区点击和 WPS 兼容性需要另行验证。操作验收清单见 [TESTING.md](TESTING.md)。
+在装有桌面版 Word 的 Windows 环境中，还可运行 `dotnet run --project tests/AcNote.Word.Smoke`，使用临时文档检查引用和文献列表行为。功能区点击及 WPS 兼容性需另行检查，详见 [TESTING.md](TESTING.md)。
+</details>
 
 ## Star 历史
 

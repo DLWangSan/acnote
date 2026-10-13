@@ -113,17 +113,14 @@ flowchart TD
 
 People formatting a thesis or a paper against a specific style, especially when the bibliography mixes Chinese and English. It is not a PDF reader, and it is not trying to cover search, recommendations, or annotation.
 
-## Running it
+## Quick Start
 
-For normal use, download the Windows x64 installer from [GitHub Releases](https://github.com/DLWangSan/acnote/releases). Setup checks for the .NET 10 Desktop Runtime first. If it is missing, setup explains the requirement and launches Microsoft's signed runtime installer before continuing. Releases also include the standalone runtime installer and SHA-256 checksums for offline deployment. AcNote currently requires 64-bit Windows.
+1. Download the latest **Windows x64 installer** from [GitHub Releases](https://github.com/DLWangSan/acnote/releases).
+2. Run the installer. It checks for the .NET 10 Desktop Runtime and guides you through installing it if needed. Close Word and WPS when the installer asks.
+3. Launch AcNote once, then fully close and reopen Word or WPS so its AcNote ribbon can load.
+4. Create or open an `.acnote` library in AcNote, select references, then insert and update them from the Word/WPS ribbon.
 
-To run from source, install the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0), then:
-
-```powershell
-dotnet run --project src/AcNote.App
-```
-
-The first launch copies built-in styles into `%AppData%\AcNote\styles` and registers the Word/WPS ribbon. Restart the relevant word processor after that. Create or open an `.acnote` library from the toolbar.
+AcNote currently requires 64-bit Windows. If the ribbon does not appear, use **Check/repair Word and WPS add-in** in AcNote, then restart the word processor.
 
 ## Contributing
 
@@ -143,14 +140,19 @@ Style files are the most useful contribution. A school style should extend GB/T 
 
 </div>
 
-## Verification
+<details>
+<summary>Build and verify from source</summary>
+
+Install the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0), then run:
 
 ```powershell
+dotnet run --project src/AcNote.App
 dotnet build AcNote.sln -c Release
 dotnet test AcNote.sln -c Release
 ```
 
-On Windows with desktop Word installed, optionally run `dotnet run --project tests/AcNote.Word.Smoke`. It uses its own temporary documents to check paragraph separation, repeated refresh, year disambiguation, typography, multi-reference insertion and removal. It is excluded from the default unit test run. Ribbon interactions and WPS compatibility require separate checks; see [TESTING.md](TESTING.md).
+On Windows with desktop Word installed, optionally run `dotnet run --project tests/AcNote.Word.Smoke`. It uses temporary documents to check citation and bibliography behavior. Ribbon interactions and WPS compatibility require separate checks; see [TESTING.md](TESTING.md).
+</details>
 
 ## Star History
 
