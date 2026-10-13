@@ -1,4 +1,5 @@
 using AcNote.Import.EndNote;
+using AcNote.Core;
 using Xunit;
 using Microsoft.Data.Sqlite;
 
@@ -120,5 +121,28 @@ public class EndNoteImporterTests
         var numbers = EndNoteImporter.ExtractCitationRecordNumbers("ADDIN EN.CITE <EndNote><Cite><RecNum>25</RecNum><record><rec-number>25</rec-number></record></Cite></EndNote>");
 
         Assert.Equal(new[] { "25" }, numbers);
+    }
+
+    [Fact]
+    public void UnformattedCitationText_MatchesByFirstAuthorAndYear_AndReportsMissingOrAmbiguous()
+    {
+        var references = new[]
+        {
+            new ReferenceItem { SourceKey = "endnote-enl:1", Year = "2022", Authors = [new Author { Family = "Campos" }] },
+            new ReferenceItem { SourceKey = "endnote-enl:2", Year = "2024", Authors = [new Author { Family = "Gandoin" }] },
+            new ReferenceItem { SourceKey = "endnote-enl:3", Year = "2020", Authors = [new Author { Family = "Smith" }] },
+            new ReferenceItem { SourceKey = "endnote-enl:4", Year = "2020", Authors = [new Author { Family = "Smith" }] },
+        };
+
+        var matches = EndNoteImporter.MatchUnformattedCitationText(
+            "(Campos et al. 2022; Gandoin and Garza 2024; Unknown 2025; Smith et al. 2020)", references);
+
+        Assert.Equal(4, matches.Count);
+        Assert.Equal("endnote-enl:1", matches[0].Reference?.SourceKey);
+        Assert.Equal("endnote-enl:2", matches[1].Reference?.SourceKey);
+        Assert.Null(matches[2].Reference);
+        Assert.Equal(0, matches[2].CandidateCount);
+        Assert.Null(matches[3].Reference);
+        Assert.Equal(2, matches[3].CandidateCount);
     }
 }

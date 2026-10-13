@@ -180,7 +180,7 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
         if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
             throw new InvalidOperationException("请先保存原 Word 文档，再创建 AcNote 副本。");
 
-        var fields = new List<(int Start, int End, string Code, bool IsBibliography)>();
+        var fields = new List<(int Start, int End, string Code, bool IsBibliography, string ResultText)>();
         var travelingXml = new StringBuilder();
         dynamic wordFields = original.Fields;
         Log("endnote-copy scan-start path=" + sourcePath);
@@ -194,7 +194,7 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
             var isBibliography = upper.StartsWith("ADDIN EN.REFLIST", StringComparison.OrdinalIgnoreCase);
             if (isCite || isData) travelingXml.AppendLine(System.Net.WebUtility.HtmlDecode(code));
             if (isCite || isBibliography)
-                fields.Add(((int)field.Result.Start, (int)field.Result.End, code, isBibliography));
+                fields.Add(((int)field.Result.Start, (int)field.Result.End, code, isBibliography, (string)field.Result.Text));
         }
 
         var imported = EndNoteImporter.ImportTravelingLibrary(travelingXml.ToString());
@@ -204,7 +204,10 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
         var citationRecords = fields.Where(field => !field.IsBibliography).SelectMany(field => RecordNumbers(field.Code)).Distinct(StringComparer.Ordinal).ToArray();
         Log($"endnote-copy scan-complete fields={fields.Count} records={imported.Items.Count} citeRecords={citationRecords.Length} embeddedXmlChars={travelingXml.Length}");
-        if (byRec.Count == 0 || citationRecords.Any(record => !byRec.ContainsKey(record)))
+        var unresolvedVisibleCitations = fields.Where(field => !field.IsBibliography && RecordNumbers(field.Code).Count == 0)
+            .Select(field => EndNoteImporter.MatchUnformattedCitationText(field.ResultText, byRec.Values))
+            .Any(matches => matches.Count == 0 || matches.Any(match => match.Reference is null));
+        if (byRec.Count == 0 || citationRecords.Any(record => !byRec.ContainsKey(record)) || unresolvedVisibleCitations)
         {
             using var picker = new OpenFileDialog { Title = "选择对应的 EndNote 文献库（.enl / .enlx / XML）", Filter = "EndNote 文献库|*.enl;*.enlx;*.xml|所有文件|*.*" };
             if (picker.ShowDialog() != DialogResult.OK) return;
@@ -225,7 +228,7 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
         if (imported.Items.Count == 0) throw new InvalidDataException("没有从文档或所选 EndNote 库中读取到文献记录。");
         var missingRecords = citationRecords.Where(record => !byRec.ContainsKey(record)).ToArray();
         if (missingRecords.Length > 0)
-            throw new InvalidDataException("仍有文中引文无法匹配到文献记录编号：" + string.Join(", ", missingRecords) + "。请确认选择的 EndNote 库与本文档对应。");
+            Log("endnote-copy unresolved-record-numbers=" + string.Join(",", missingRecords));
 
         var suffix = "-AcNote";
         var directory = Path.GetDirectoryName(sourcePath)!;
@@ -247,6 +250,13 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
             store.Save(item);
             ids[key] = item.Id;
         }
+        var citationPlans = fields.Where(field => !field.IsBibliography)
+            .ToDictionary(field => field.Start, field => ResolveCitation(field.Code, field.ResultText, imported.Items, ids));
+        var missingCitations = citationPlans.Values.SelectMany(plan => plan.Missing).Distinct(StringComparer.Ordinal).ToList();
+        Log($"endnote-copy citation-resolution resolved={citationPlans.Values.Sum(plan => plan.Ids.Count)} missing={missingCitations.Count}");
+        foreach (var field in fields.Where(field => !field.IsBibliography))
+            if (citationPlans[field.Start].Missing.Count > 0)
+                Log($"endnote-copy unmatched position={field.Start} text={field.ResultText.Trim()} missing={string.Join("; ", citationPlans[field.Start].Missing)}");
 
         // Word's Document object has no SaveCopyAs method (that method belongs to
         // Excel workbooks). Save the current document first, then copy its on-disk
@@ -282,12 +292,7 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
                     }
                     continue;
                 }
-                var recs = RecordNumbers(entry.Code);
-                if (recs.Count == 0) throw new InvalidDataException("文档中存在未格式化的 EndNote 引用，且没有可读取的记录编号。请选择对应的 .enl 文献库后重试。");
-                var citeIds = recs.Where(ids.ContainsKey).Select(key => ids[key]).ToList();
-                if (citeIds.Count != recs.Count) throw new InvalidDataException("有 EndNote 引文无法与嵌入记录对应。请确认选择了原始 .enl 文献库。");
-                dynamic range = converted.Range(entry.Start, entry.End);
-                var fieldRange = range;
+                var plan = citationPlans[entry.Start];
                 // Unlink leaves the rendered citation text in the document; replace only its field wrapper.
                 dynamic matchField = null!;
                 for (var j = (int)converted.Fields.Count; j >= 1; j--)
@@ -297,8 +302,19 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
                 }
                 if (matchField is null) continue;
                 matchField.Unlink();
+                dynamic fieldRange = converted.Range(entry.Start, entry.End);
+                if (plan.Ids.Count == 0)
+                {
+                    WriteMissingCitationMarker(fieldRange, FormatMissingCitationMarker(plan.Missing, entry.ResultText));
+                    continue;
+                }
                 dynamic control = converted.ContentControls.Add(0, fieldRange);
-                CitationDocument.PrepareForConversion(control, CitationDocument.BuildTag("parenthetical", citeIds));
+                CitationDocument.PrepareForConversion(control, CitationDocument.BuildTag("parenthetical", plan.Ids));
+                if (plan.Missing.Count > 0)
+                {
+                    dynamic markerRange = converted.Range((int)control.Range.End, (int)control.Range.End);
+                    WriteMissingCitationMarker(markerRange, FormatMissingCitationMarker(plan.Missing, entry.ResultText));
+                }
             }
             CitationDocument.BindLibrary(converted, libraryPath);
             CitationDocument.SetStyleId(converted, Catalog().All.FirstOrDefault()?.Id ?? "");
@@ -312,10 +328,74 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
             try { File.Delete(libraryPath); } catch { }
             throw;
         }
-        Dialogs.Info($"已创建 AcNote 副本：\n{copyPath}\n\n已导入 {store.Count()} 条文献记录。原文件保持不变。\n\n若原 EndNote 库含有文中未引用的其他记录，它们不包含在 Word 文档里；需要完整迁移时请另行导入 .enl 文献库。");
+        var summary = new StringBuilder($"已创建 AcNote 副本：\n{copyPath}\n\n已导入 {store.Count()} 条文献记录。原文档仍保留 EndNote 引用。");
+        if (missingCitations.Count > 0)
+        {
+            summary.AppendLine().AppendLine().AppendLine("以下引用未能在所选文献库中唯一匹配，副本中已在原位置标红标注：");
+            foreach (var missing in missingCitations) summary.AppendLine("• " + missing);
+        }
+        else
+        {
+            summary.AppendLine().AppendLine().Append("所有文中引用均已匹配。");
+        }
+        summary.AppendLine().AppendLine("若需迁移文档未引用的其他记录，请另行导入完整的 .enl 文献库。");
+        Dialogs.Info(summary.ToString());
     }
 
     private static List<string> RecordNumbers(string fieldCode) => EndNoteImporter.ExtractCitationRecordNumbers(fieldCode);
+
+    private static (List<string> Ids, List<string> Missing) ResolveCitation(
+        string fieldCode, string renderedText, IReadOnlyList<ReferenceItem> references, IReadOnlyDictionary<string, string> ids)
+    {
+        var keys = RecordNumbers(fieldCode);
+        var missing = new List<string>();
+        var citeIds = new List<string>();
+        if (keys.Count > 0 && keys.All(ids.ContainsKey))
+            citeIds.AddRange(keys.Select(key => ids[key]));
+        else
+        {
+            var matches = EndNoteImporter.MatchUnformattedCitationText(renderedText, references);
+            if (matches.Count > 0)
+            {
+                foreach (var match in matches)
+                {
+                    if (match.Reference is null)
+                    {
+                        missing.Add(match.CandidateCount > 1
+                            ? $"{match.Citation}（同作者同年有 {match.CandidateCount} 条记录，无法确定）"
+                            : $"{match.Citation}（文献库中未找到）");
+                        continue;
+                    }
+                    var key = match.Reference.SourceKey[(match.Reference.SourceKey.IndexOf(':') + 1)..];
+                    if (ids.TryGetValue(key, out var id)) citeIds.Add(id);
+                    else missing.Add($"{match.Citation}（记录未导入）");
+                }
+            }
+            else if (keys.Count > 0)
+            {
+                foreach (var key in keys)
+                {
+                    if (ids.TryGetValue(key, out var id)) citeIds.Add(id);
+                    else missing.Add($"EndNote 记录号 #{key}（文献库中未找到）");
+                }
+            }
+            else
+            {
+                missing.Add(string.IsNullOrWhiteSpace(renderedText) ? "位置未知的 EndNote 引用" : $"{renderedText.Trim()}（无法识别作者和年份）");
+            }
+        }
+        return (citeIds.Distinct(StringComparer.Ordinal).ToList(), missing.Distinct(StringComparer.Ordinal).ToList());
+    }
+
+    private static string FormatMissingCitationMarker(IReadOnlyList<string> missing, string originalText) =>
+        "【AcNote未匹配引用：" + (missing.Count > 0 ? string.Join("；", missing) : originalText.Trim()) + "】";
+
+    private static void WriteMissingCitationMarker(dynamic range, string marker)
+    {
+        range.Text = marker;
+        range.Font.Color = 255;
+        range.Font.Bold = true;
+    }
 
     public void OnConvertNarrative(object control) => ConvertCitation("narrative");
     public void OnConvertParenthetical(object control) => ConvertCitation("author-year");

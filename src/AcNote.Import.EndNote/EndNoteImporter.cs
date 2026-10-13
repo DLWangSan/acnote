@@ -12,6 +12,8 @@ public sealed class ImportResult
     public List<string> Warnings { get; } = [];
 }
 
+public sealed record CitationTextMatch(string Citation, ReferenceItem? Reference, int CandidateCount);
+
 public static class EndNoteImporter
 {
     private static readonly string[] Collations = ["ENCI_Base", "ENCIN_Base", "ENCI", "ENOTE"];
@@ -103,6 +105,59 @@ public static class EndNoteImporter
         }
 
         return numbers.Distinct(StringComparer.Ordinal).ToList();
+    }
+
+    public static List<CitationTextMatch> MatchUnformattedCitationText(string citationText, IEnumerable<ReferenceItem> references)
+    {
+        var records = references.ToList();
+        var fragments = (citationText ?? "")
+            .Trim(' ', '\r', '\n', '\t', '(', ')', '（', '）', '[', ']', '【', '】')
+            .Split([';', '；'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var matches = new List<CitationTextMatch>();
+        foreach (var fragment in fragments)
+        {
+            var yearMatch = System.Text.RegularExpressions.Regex.Match(fragment, "(?<!\\d)(?<year>(?:18|19|20|21)\\d{2})(?:[a-z])?(?!\\d)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (!yearMatch.Success)
+            {
+                matches.Add(new CitationTextMatch(fragment, null, 0));
+                continue;
+            }
+
+            var authorText = fragment[..yearMatch.Index].Trim().TrimEnd(',', '，', ':', '：');
+            authorText = System.Text.RegularExpressions.Regex.Replace(authorText, "\\s+et\\s+al\\.?$|等$", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+            var firstAuthor = System.Text.RegularExpressions.Regex.Split(authorText, "\\s+(?:and|&)\\s+|[,，、]", System.Text.RegularExpressions.RegexOptions.IgnoreCase)[0].Trim();
+            var normalizedCitationAuthor = NormalizeAuthor(firstAuthor);
+            if (normalizedCitationAuthor.Length == 0)
+            {
+                matches.Add(new CitationTextMatch(fragment, null, 0));
+                continue;
+            }
+
+            var candidates = records.Where(item => string.Equals(item.Year.Trim(), yearMatch.Groups["year"].Value, StringComparison.OrdinalIgnoreCase))
+                .Where(item =>
+                {
+                    var first = item.Authors.FirstOrDefault(author => !string.IsNullOrWhiteSpace(author.Family) || !string.IsNullOrWhiteSpace(author.Literal));
+                    if (first is null) return false;
+                    var names = new[] { first.Family, first.Literal }
+                        .Where(name => !string.IsNullOrWhiteSpace(name))
+                        .Select(NormalizeAuthor);
+                    return names.Any(name => name == normalizedCitationAuthor || name.EndsWith(normalizedCitationAuthor, StringComparison.Ordinal));
+                })
+                .ToList();
+            matches.Add(new CitationTextMatch(fragment, candidates.Count == 1 ? candidates[0] : null, candidates.Count));
+        }
+
+        return matches;
+    }
+
+    private static string NormalizeAuthor(string name)
+    {
+        var normalized = name.Normalize(System.Text.NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+        foreach (var character in normalized)
+            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(character) != System.Globalization.UnicodeCategory.NonSpacingMark && char.IsLetterOrDigit(character))
+                builder.Append(char.ToLowerInvariant(character));
+        return builder.ToString();
     }
 
     private static ImportResult ReadCompressed(string path)
