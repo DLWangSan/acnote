@@ -289,6 +289,8 @@ public static class CitationDocument
         {
             dynamic control = wordDocument.ContentControls[index];
             var tag = (string)(control.Tag ?? "");
+            if (tag.StartsWith(CitePrefix, StringComparison.Ordinal) || tag == BibliographyTag)
+                HideAcNoteLabel(control);
             if (tag.StartsWith(CitePrefix, StringComparison.Ordinal))
             {
                 if ((bool)control.ShowingPlaceholderText || string.IsNullOrWhiteSpace((string)control.Range.Text))
@@ -470,9 +472,14 @@ public static class CitationDocument
     private static void Prepare(dynamic control, string tag)
     {
         control.Tag = tag;
-        control.Title = "AcNote";
-        try { control.Appearance = 2; } catch { /* Older Word builds have no hidden appearance. */ }
+        HideAcNoteLabel(control);
         try { control.LockContentControl = false; } catch { /* Citations remain removable with normal Word editing. */ }
+    }
+
+    private static void HideAcNoteLabel(dynamic control)
+    {
+        try { control.Title = ""; } catch { /* Some WPS builds do not expose the title setter. */ }
+        try { control.Appearance = 2; } catch { /* Older Word builds have no hidden appearance. */ }
     }
 
     private static void ValidateReferences(dynamic document, IReadOnlyList<string> ids, Func<string, ReferenceItem?> lookup, string? excludeControl = null)
