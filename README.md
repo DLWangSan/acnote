@@ -124,7 +124,11 @@ AcNote currently requires 64-bit Windows. If the ribbon does not appear, use **C
 
 ## Contributing
 
-Style files are the most useful contribution. A school style should extend GB/T 7714 and use the university name. Bug reports are most useful with the style file, the record, and the expected string.
+Pick any item that sounds useful:
+
+- [ ] Found a bug or have an idea? [Open an issue](https://github.com/DLWangSan/acnote/issues/new). Include the AcNote version, Word/WPS version, steps to reproduce, and what you expected to happen.
+- [ ] Have a university or journal style to share? Improve a `.style` file in `styles/`, test it with sample references, then [start a pull request](https://github.com/DLWangSan/acnote/compare). Include the style requirements or source and example output. First time contributing? See GitHub's guide to [creating a pull request from a fork](https://docs.github.com/en/pull-requests/how-tos/create-pull-requests/creating-a-pull-request-from-a-fork).
+- [ ] Tried AcNote with Word or WPS? Share your version and feedback in an [issue](https://github.com/DLWangSan/acnote/issues/new).
 
 ## Design choices
 

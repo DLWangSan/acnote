@@ -122,7 +122,11 @@ AcNote 目前要求 64 位 Windows。如果功能区没有出现，可在 AcNote
 
 ## 参与
 
-最有用的是版式文件。学校版式继承 GB/T 7714，名字用大学名。报告问题时，请带上版式文件、文献记录和期望的著录字符串。
+欢迎挑选下面任何一项参与：
+
+- [ ] 发现了问题或有功能建议？[提交 Issue](https://github.com/DLWangSan/acnote/issues/new)，请尽量附上 AcNote 版本、Word/WPS 版本、复现步骤和预期结果。
+- [ ] 想分享学校或期刊版式？完善 `styles/` 目录中的 `.style` 文件，用示例文献测试后[发起 Pull Request](https://github.com/DLWangSan/acnote/compare)。请附上版式要求或规范来源，以及示例输出。第一次提交可参考 GitHub 的[从 Fork 创建 Pull Request 指南](https://docs.github.com/en/pull-requests/how-tos/create-pull-requests/creating-a-pull-request-from-a-fork)。
+- [ ] 用 Word 或 WPS 试过 AcNote？欢迎通过 [Issue](https://github.com/DLWangSan/acnote/issues/new) 分享版本信息和使用反馈。
 
 ## 几个约定
 
