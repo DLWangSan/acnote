@@ -162,6 +162,24 @@ public class DocumentRefreshTests
     }
 
     [Fact]
+    public void RefreshReplacesManualEditsToTheManagedBibliographyBlock()
+    {
+        var doc = new TestDocument();
+        doc.ContentControls.Add(CitationDocument.BuildTag("p", ["a"]), 0);
+        var bibliography = doc.ContentControls.Add(CitationDocument.BibliographyTag, 100);
+
+        CitationDocument.Refresh(doc, new(), id => Paper(id, id));
+        var expected = bibliography.Range.Text;
+        bibliography.UserEdit(expected + " 手动添加的文字");
+
+        CitationDocument.Refresh(doc, new(), id => Paper(id, id));
+
+        Assert.False(bibliography.Deleted);
+        Assert.Equal(expected, bibliography.Range.Text);
+        Assert.Single(doc.ContentControls.Items, control => control.Tag == CitationDocument.BibliographyTag);
+    }
+
+    [Fact]
     public void DeleteRemovesWrapperAndCollapsesSelection()
     {
         var doc = new TestDocument();

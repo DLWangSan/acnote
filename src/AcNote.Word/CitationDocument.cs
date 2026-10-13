@@ -312,14 +312,16 @@ public static class CitationDocument
             }
             else if (tag == BibliographyTag)
             {
-                var previous = PreviousText(wordDocument, (string)control.ID);
-                if ((bool)control.ShowingPlaceholderText || (previous is not null && previous != (string)control.Range.Text))
+                if ((bool)control.ShowingPlaceholderText)
                 {
                     control.LockContents = false;
                     control.LockContentControl = false;
-                    control.Delete((bool)control.ShowingPlaceholderText);
+                    control.Delete(true);
                     continue;
                 }
+                // The bibliography is a generated block owned by AcNote. Keep
+                // its control even if the user edited its text so the next
+                // refresh can restore the complete canonical list in place.
                 bibliography = control;
             }
         }
