@@ -364,7 +364,6 @@ public static class CitationDocument
             // This avoids empty "click here" placeholders and stale tags later
             // overwriting prose. Programmatic refresh disables this first.
             current.LockContentControl = false;
-            current.Temporary = true;
         }
 
         if (order.Count == 0)
@@ -429,6 +428,10 @@ public static class CitationDocument
         {
             dynamic current = FindControl(document, citation.Id);
             AddCitationHyperlinks(wordDocument, current, citation.Spans, bookmarks);
+            // Word removes a Temporary content control when Hyperlinks.Add
+            // edits its contents. Add links first, then restore the intended
+            // auto-remove behavior for user edits.
+            current.Temporary = true;
         }
     }
 

@@ -34,8 +34,24 @@ internal static class Program
             CitationDocument.InsertAndRefresh(doc, app.Selection, new[] { "a", "b" }, "parenthetical", numeric, (Func<string, ReferenceItem?>)Lookup);
             var text = (string)doc.Content.Text;
             Check(text.Contains("正文测试。[1,2]\r\r[1]"), "Bibliography starts after a blank paragraph", text);
+            Check((int)doc.ContentControls.Count == 2, "Citation control survives link creation", text);
             Check((int)doc.Hyperlinks.Count == 2, "Each numeric citation links to its bibliography entry", text);
             Check((int)doc.Bookmarks.Count == 2, "Bibliography entries have internal jump targets", text);
+            var targets = new List<string>();
+            for (var i = 1; i <= (int)doc.Hyperlinks.Count; i++)
+            {
+                dynamic link = doc.Hyperlinks[i];
+                var target = (string)link.SubAddress;
+                Check((bool)doc.Bookmarks.Exists(target), "Citation hyperlink target exists", target);
+                targets.Add(target);
+            }
+            Check(targets.Distinct(StringComparer.Ordinal).Count() == 2, "Grouped citation links target distinct entries", string.Join(",", targets));
+            dynamic firstLink = doc.Hyperlinks[1];
+            firstLink.Follow();
+            var followedTarget = doc.Bookmarks[(string)firstLink.SubAddress];
+            var selectionStart = (int)app.Selection.Range.Start;
+            Check(selectionStart >= (int)followedTarget.Range.Start && selectionStart <= (int)followedTarget.Range.End,
+                "Following a citation hyperlink lands on its bibliography entry", (string)doc.Content.Text);
             Check(!CitationDocument.SelectionIsCitation(app.Selection), "Caret exits the inserted control", text);
             var before = text;
             CitationDocument.Refresh(doc, numeric, (Func<string, ReferenceItem?>)Lookup);
