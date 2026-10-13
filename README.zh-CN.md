@@ -149,3 +149,13 @@ dotnet test AcNote.sln -c Release
 ```
 
 安装了桌面 Word 的 Windows 环境还可手动运行 `dotnet run --project tests/AcNote.Word.Smoke`。它创建自己的临时文档，验证分段、重复刷新、消歧、字体段落、多篇插入和引用移除；不属于默认单元测试。功能区点击和 WPS 兼容性需要另行验证。操作验收清单见 [TESTING.md](TESTING.md)。
+
+## Star 历史
+
+<a href="https://www.star-history.com/?repos=DLWangSan%2Facnote&amp;type=date&amp;legend=top-left">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=DLWangSan/acnote&amp;type=date&amp;theme=dark&amp;legend=top-left" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=DLWangSan/acnote&amp;type=date&amp;legend=top-left" />
+    <img alt="AcNote Star 历史" src="https://api.star-history.com/chart?repos=DLWangSan/acnote&amp;type=date&amp;legend=top-left" />
+  </picture>
+</a>

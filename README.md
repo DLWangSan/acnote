@@ -151,3 +151,13 @@ dotnet test AcNote.sln -c Release
 ```
 
 On Windows with desktop Word installed, optionally run `dotnet run --project tests/AcNote.Word.Smoke`. It uses its own temporary documents to check paragraph separation, repeated refresh, year disambiguation, typography, multi-reference insertion and removal. It is excluded from the default unit test run. Ribbon interactions and WPS compatibility require separate checks; see [TESTING.md](TESTING.md).
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=DLWangSan%2Facnote&amp;type=date&amp;legend=top-left">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=DLWangSan/acnote&amp;type=date&amp;theme=dark&amp;legend=top-left" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=DLWangSan/acnote&amp;type=date&amp;legend=top-left" />
+    <img alt="AcNote star history" src="https://api.star-history.com/chart?repos=DLWangSan/acnote&amp;type=date&amp;legend=top-left" />
+  </picture>
+</a>
