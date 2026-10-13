@@ -61,6 +61,19 @@ public sealed class LibraryStore
         }
     }
 
+    public void Checkpoint()
+    {
+        lock (_gate)
+        {
+            using var connection = Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "PRAGMA wal_checkpoint(TRUNCATE);";
+            using var reader = command.ExecuteReader();
+            if (reader.Read() && reader.GetInt32(0) != 0)
+                throw new IOException("文献库正在被其他程序写入，暂时无法完成单文件保存。请关闭其他 AcNote 窗口后重试。");
+        }
+    }
+
     public IReadOnlyList<ReferenceItem> List()
     {
         lock (_gate)

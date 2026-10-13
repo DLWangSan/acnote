@@ -276,6 +276,7 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
             try { File.Delete(libraryPath); } catch { }
             throw new InvalidOperationException($"无法创建并打开 AcNote 副本（{ex.Message}）。原文档未被转换。", ex);
         }
+        var convertedDocumentSaved = false;
         try
         {
             // Process from the end so field removal cannot shift the remaining Word ranges.
@@ -320,12 +321,21 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
             CitationDocument.SetStyleId(converted, Catalog().All.FirstOrDefault()?.Id ?? "");
             CitationDocument.Refresh(converted, Catalog().Get(CitationDocument.GetStyleId(converted)), LookupFor(converted));
             converted.Save();
+            convertedDocumentSaved = true;
+            store.Checkpoint();
+            var bibliographyControls = CountBibliographyControls(converted);
+            if (citationPlans.Values.Any(plan => plan.Ids.Count > 0) && bibliographyControls == 0)
+                throw new InvalidOperationException("引文已转换，但文末参考文献列表未生成。副本文档和 .acnote 文献库已保留，请重新打开副本后点击“更新文献列表”。");
+            Log($"endnote-copy saved references={store.Count()} bibliography-controls={bibliographyControls} library={libraryPath}");
         }
         catch
         {
             try { converted.Close(SaveChanges: false); } catch { }
-            try { File.Delete(copyPath); } catch { }
-            try { File.Delete(libraryPath); } catch { }
+            if (!convertedDocumentSaved)
+            {
+                try { File.Delete(copyPath); } catch { }
+                try { File.Delete(libraryPath); } catch { }
+            }
             throw;
         }
         var summary = new StringBuilder($"已创建 AcNote 副本：\n{copyPath}\n\n已导入 {store.Count()} 条文献记录。原文档仍保留 EndNote 引用。");
@@ -340,6 +350,20 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
         }
         summary.AppendLine().AppendLine("若需迁移文档未引用的其他记录，请另行导入完整的 .enl 文献库。");
         Dialogs.Info(summary.ToString());
+    }
+
+    private static int CountBibliographyControls(object document)
+    {
+        dynamic wordDocument = document;
+        var count = 0;
+        for (var i = 1; i <= (int)wordDocument.ContentControls.Count; i++)
+        {
+            dynamic control = wordDocument.ContentControls[i];
+            if (string.Equals((string)(control.Tag ?? ""), CitationDocument.BibliographyTag, StringComparison.Ordinal)
+                && !string.IsNullOrWhiteSpace(((string)control.Range.Text).Trim('\r', '\n', '\a', ' ', '\t')))
+                count++;
+        }
+        return count;
     }
 
     private static List<string> RecordNumbers(string fieldCode) => EndNoteImporter.ExtractCitationRecordNumbers(fieldCode);

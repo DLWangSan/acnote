@@ -1,5 +1,5 @@
 param(
-    [string]$Version = '0.1.8',
+    [string]$Version = '0.1.9',
     [string]$DotNet = 'dotnet',
     [string]$Iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
     [string]$RuntimeInstaller = '',

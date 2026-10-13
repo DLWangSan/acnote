@@ -74,6 +74,21 @@ public class YearDisambiguationTests
     }
 
     [Fact]
+    public void CheckpointMakesLibraryPortableAsASingleFile()
+    {
+        var folder = Directory.CreateTempSubdirectory("acnote-checkpoint-");
+        var path = Path.Combine(folder.FullName, "portable.acnote");
+        var store = new LibraryStore(path);
+        store.Save(Paper("one", "Example"));
+
+        store.Checkpoint();
+
+        var copiedPath = Path.Combine(folder.FullName, "copied.acnote");
+        File.Copy(path, copiedPath);
+        Assert.Equal("Example", new LibraryStore(copiedPath).Find("one")!.Title);
+    }
+
+    [Fact]
     public void InvalidStyleCannotOverwriteInstalledStyle()
     {
         var folder = Directory.CreateTempSubdirectory("acnote-install-");

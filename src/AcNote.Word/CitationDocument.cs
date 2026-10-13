@@ -214,6 +214,9 @@ public static class CitationDocument
     {
         dynamic control = contentControl;
         Prepare(control, tag);
+        // Use the same sentinel as newly inserted citations so Refresh never
+        // mistakes an imported EndNote display string for user-edited prose.
+        SetText(control, "…");
     }
 
     public static bool IsCitationTag(string tag) =>
