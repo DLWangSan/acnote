@@ -67,6 +67,40 @@ Desktop shortcuts: `Ctrl+2` inserts selected references, `Ctrl+N` creates a reco
 
 The installer includes both x64 and x86 Word/WPS COM add-ins and registers the matching registry views, so 32-bit WPS can load the add-in on 64-bit Windows. It installs whichever .NET 10 Desktop Runtime architectures are missing and waits for Word/WPS to close before registration. The app also has a **Check/repair Word and WPS add-in** action. Office loads add-ins at startup, so fully exit all Word and WPS processes after installing or repairing. If a tab is still missing, check `%AppData%\AcNote\word-registration.log` for the registered COM paths.
 
+### Codex and MCP
+
+The installer includes a local `AcNote.Mcp.exe` server and an `acnote` Skill. The Skill defines how an AI should find, verify, and insert references; the MCP server exposes controlled local operations. Codex works through the running AcNote application with its current library and Word document. It does not read or write the `.acnote` database directly, and it does not require a separate AI-only library.
+
+Nine MCP tools are currently available:
+
+| Tool | Purpose |
+| --- | --- |
+| `get_status` | Check AcNote, the current library, and the active Word document |
+| `create_library` | Create and open a library at an absolute `.acnote` path without overwriting existing files |
+| `open_library` | Open an existing `.acnote` library |
+| `import_references` | Import up to 20 EndNote, BibTeX, RIS, CSL JSON, or Zotero files into the current library |
+| `search_references` | Search by title, author, year, journal, DOI, URL, or source key |
+| `get_references` | Read exact records by stable ID and check fields required by the current style |
+| `get_word_context` | Inspect the active Word selection, nearby text, and AcNote binding |
+| `insert_citation` | Insert a managed citation at the cursor or before/after a unique exact-text anchor |
+| `update_citations` | Refresh every citation and the bibliography using the document's bound library and style |
+
+After installing AcNote, run this in PowerShell:
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\AcNote\codex\Install-Codex.ps1"
+```
+
+The script installs the Skill into the Codex skills directory and registers the local MCP server. It first honors `CODEX_CLI_PATH`, then looks for the CLI bundled with Codex Desktop, so a separate global CLI installation is normally unnecessary. Restart Codex after the script succeeds, then start AcNote and open the library and Word document needed for the task.
+
+For example, ask Codex:
+
+> Create `D:\Paper\Review.acnote` and import the three `.enl` paths I provide. Report each import result, then find and verify references for the active Word document. Show the proposed sources and locations before inserting them, and finally update all citations and the bibliography.
+
+MCP paths must be absolute, and an imported `.enl` must remain beside its matching `.Data` directory. Batch imports return added, updated, warning, and error details for each file. The Skill tells Codex to use stable IDs returned by AcNote, never invent a reference, never substitute manually typed numbers for managed citations, and never overwrite manuscript prose merely to place a citation. An ambiguous text anchor is rejected until the location is made explicit.
+
+Before upgrading AcNote, fully exit Codex Desktop, AcNote, Word, and WPS. A running `AcNote.Mcp.exe` may hold `AcNote.Core.dll`. If the installer reports `DeleteFile failed; code 5`, close those applications and choose **Try again**; do not choose **Skip this file**.
+
 ### Import
 
 EndNote X9.3 and later `.enl` libraries, compressed `.enlx` libraries, and EndNote XML can be imported. The original library is only read. Older EndNote libraries need an EndNote XML export.
@@ -103,6 +137,9 @@ The formatter does not live inside the Word add-in. The desktop program owns the
 ```mermaid
 flowchart TD
     A[EndNote library or XML] --> B[.acnote library file]
+    H[Codex + AcNote Skill] --> I[Local MCP server]
+    I --> B
+    I --> G
     B --> C[Language and author formatting]
     C --> D[Style file]
     D --> E[Bibliography text]
@@ -120,6 +157,7 @@ People formatting a thesis or a paper against a specific style, especially when 
 2. Run the installer. It checks for the .NET 10 Desktop Runtime and guides you through installing it if needed. Close Word and WPS when the installer asks.
 3. Launch AcNote once, then fully close and reopen Word or WPS so its AcNote ribbon can load.
 4. Create or open an `.acnote` library in AcNote, select references, then insert and update them from the Word/WPS ribbon.
+5. To use AcNote from Codex, run the `Install-Codex.ps1` command above, restart Codex, and let it operate the current library and Word document through the AcNote Skill and MCP server.
 
 AcNote currently requires 64-bit Windows. If the ribbon does not appear, use **Check/repair Word and WPS add-in** in AcNote, then restart the word processor.
 

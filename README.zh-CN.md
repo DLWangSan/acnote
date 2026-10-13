@@ -69,7 +69,21 @@ Author-Year 的文中引用用姓：`(袁隆平, 1966)`、`(Watson and Crick, 19
 
 ### Codex 与 MCP
 
-安装包包含本机 `AcNote.Mcp.exe` 和 `acnote` Skill。它们让 Codex 通过正在运行的 AcNote 创建或打开文献库、批量导入 EndNote 等文献文件，并在当前 Word 文档中检索、核对、插入和更新 AcNote 引用；不会让 Codex 直接修改 `.acnote` 数据库。
+安装包包含本机 `AcNote.Mcp.exe` 和 `acnote` Skill。Skill 规定 AI 应该怎样查找、核对和插入文献；MCP 服务提供受控的本机操作。Codex 通过正在运行的 AcNote 使用当前文献库和 Word 文档，不会直接读写 `.acnote` 数据库，也不需要另建一套 AI 专用文献库。
+
+当前提供 9 个 MCP 工具：
+
+| 工具 | 用途 |
+| --- | --- |
+| `get_status` | 检查 AcNote、当前文献库和活动 Word 文档 |
+| `create_library` | 在绝对路径新建并打开 `.acnote` 文献库；不覆盖已有文件 |
+| `open_library` | 打开已有的 `.acnote` 文献库 |
+| `import_references` | 一次向当前库导入最多 20 个 EndNote、BibTeX、RIS、CSL JSON 或 Zotero 文件 |
+| `search_references` | 按题名、作者、年份、期刊、DOI、URL 或来源键搜索当前库 |
+| `get_references` | 按稳定 ID 读取准确记录，并按当前版式检查缺项 |
+| `get_word_context` | 查看活动 Word 文档的选择位置、附近正文和 AcNote 绑定信息 |
+| `insert_citation` | 在当前光标或唯一的精确文本锚点前后插入托管引用 |
+| `update_citations` | 按文档绑定的文献库和版式刷新全部引用与文末列表 |
 
 安装 AcNote 后，在 PowerShell 中运行：
 
@@ -77,7 +91,15 @@ Author-Year 的文中引用用姓：`(袁隆平, 1966)`、`(Watson and Crick, 19
 & "$env:LOCALAPPDATA\Programs\AcNote\codex\Install-Codex.ps1"
 ```
 
-脚本会把 Skill 安装到 Codex 的 skills 目录，并用 `codex mcp add` 登记本机 MCP 服务。重启 Codex 后，先启动 AcNote、打开目标文献库和 Word 文档，再让 Codex 查找或插入引用。正文定位支持当前光标，也支持在唯一的精确文本锚点之前或之后插入；锚点有歧义时会拒绝写入。
+脚本会把 Skill 安装到 Codex 的 skills 目录，并登记本机 MCP 服务。它会优先使用 `CODEX_CLI_PATH`，也能自动寻找 Codex Desktop 自带的 `codex.exe`；通常不需要另装全局 CLI。安装成功后必须重启 Codex，随后启动 AcNote，并按任务需要打开目标文献库和 Word 文档。
+
+例如，可以告诉 Codex：
+
+> 新建 `D:\论文\综述.acnote`，导入我给出的三个 `.enl` 路径；逐个报告导入结果，然后在当前 Word 文档中查找和核对文献。先说明建议插入的文献和位置，得到确认后再插入，最后更新引用和文末列表。
+
+MCP 接受绝对路径；导入 `.enl` 时必须保留同名 `.Data` 目录。批量导入会分别返回每个文件的新增、更新、警告和错误，部分文件失败时不会掩盖已经成功导入的记录。Skill 要求 Codex 使用 AcNote 返回的稳定 ID，不猜测文献，不用手工编号替代托管引用，也不为放置引用而覆盖正文。文本锚点不唯一时，工具会拒绝写入，直到位置能够明确。
+
+升级 AcNote 前，请完全退出 Codex Desktop、AcNote、Word 和 WPS。正在运行的 `AcNote.Mcp.exe` 可能占用 `AcNote.Core.dll`；如果安装器提示 `DeleteFile failed; code 5`，退出这些程序后选择 **Try again**，不要选择 **Skip this file**。
 
 ### 导入
 
@@ -113,6 +135,9 @@ Author-Year 的文中引用用姓：`(袁隆平, 1966)`、`(Watson and Crick, 19
 ```mermaid
 flowchart TD
     A[EndNote 库或 XML] --> B[.acnote 文献库]
+    H[Codex + AcNote Skill] --> I[本机 MCP 服务]
+    I --> B
+    I --> G
     B --> C[语种与作者]
     C --> D[版式文件]
     D --> E[参考文献正文]
@@ -130,6 +155,7 @@ flowchart TD
 2. 运行安装程序。它会检查 .NET 10 Desktop Runtime，缺少时会提示并引导安装；安装过程中按提示关闭 Word 和 WPS。
 3. 首次启动 AcNote 后，完全退出并重新打开 Word 或 WPS，让插件功能区加载。
 4. 在 AcNote 中新建或打开 `.acnote` 文献库，选择文献，再从 Word/WPS 的 AcNote 功能区插入和更新引用。
+5. 如需让 Codex 使用 AcNote，运行上面的 `Install-Codex.ps1`，重启 Codex，再让它通过 AcNote Skill 和 MCP 操作当前文献库与 Word 文档。
 
 AcNote 目前要求 64 位 Windows。如果功能区没有出现，可在 AcNote 中使用“检查/修复 Word、WPS 插件”，然后重启文字处理程序。
 
