@@ -16,6 +16,8 @@ namespace AcNote.WordAddin;
 [ComDefaultInterface(typeof(IDTExtensibility2))]
 public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
 {
+    private sealed record EndNoteField(int Start, int End, string Code, bool IsBibliography, string ResultText);
+
     private const string Ribbon = """
         <customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui" onLoad="OnRibbonLoad">
           <ribbon>
@@ -180,22 +182,12 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
         if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
             throw new InvalidOperationException("请先保存原 Word 文档，再创建 AcNote 副本。");
 
-        var fields = new List<(int Start, int End, string Code, bool IsBibliography, string ResultText)>();
         var travelingXml = new StringBuilder();
-        dynamic wordFields = original.Fields;
         Log("endnote-copy scan-start path=" + sourcePath);
-        for (var i = 1; i <= (int)wordFields.Count; i++)
-        {
-            dynamic field = wordFields[i];
-            var code = (string)field.Code.Text;
-            var upper = code.TrimStart();
-            var isData = upper.StartsWith("ADDIN EN.CITE.DATA", StringComparison.OrdinalIgnoreCase);
-            var isCite = !isData && upper.StartsWith("ADDIN EN.CITE", StringComparison.OrdinalIgnoreCase);
-            var isBibliography = upper.StartsWith("ADDIN EN.REFLIST", StringComparison.OrdinalIgnoreCase);
-            if (isCite || isData) travelingXml.AppendLine(System.Net.WebUtility.HtmlDecode(code));
-            if (isCite || isBibliography)
-                fields.Add(((int)field.Result.Start, (int)field.Result.End, code, isBibliography, (string)field.Result.Text));
-        }
+        // Saving can update EndNote fields and change their displayed ranges.
+        // Capture offsets only after the source document is on disk.
+        original.Save();
+        var fields = CaptureEndNoteFields((object)original, travelingXml);
 
         var imported = EndNoteImporter.ImportTravelingLibrary(travelingXml.ToString());
         var byRec = imported.Items
@@ -250,14 +242,6 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
             store.Save(item);
             ids[key] = item.Id;
         }
-        var citationPlans = fields.Where(field => !field.IsBibliography)
-            .ToDictionary(field => field.Start, field => ResolveCitation(field.Code, field.ResultText, imported.Items, ids));
-        var missingCitations = citationPlans.Values.SelectMany(plan => plan.Missing).Distinct(StringComparer.Ordinal).ToList();
-        Log($"endnote-copy citation-resolution resolved={citationPlans.Values.Sum(plan => plan.Ids.Count)} missing={missingCitations.Count}");
-        foreach (var field in fields.Where(field => !field.IsBibliography))
-            if (citationPlans[field.Start].Missing.Count > 0)
-                Log($"endnote-copy unmatched position={field.Start} text={field.ResultText.Trim()} missing={string.Join("; ", citationPlans[field.Start].Missing)}");
-
         // Word's Document object has no SaveCopyAs method (that method belongs to
         // Excel workbooks). Save the current document first, then copy its on-disk
         // package so unsaved edits and embedded EndNote traveling-library data are
@@ -265,7 +249,6 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
         dynamic converted;
         try
         {
-            original.Save();
             File.Copy(sourcePath, copyPath);
             Log("endnote-copy file-copied " + copyPath);
             converted = app.Documents.Open(copyPath, ReadOnly: false, AddToRecentFiles: true);
@@ -277,44 +260,77 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
             throw new InvalidOperationException($"无法创建并打开 AcNote 副本（{ex.Message}）。原文档未被转换。", ex);
         }
         var convertedDocumentSaved = false;
+        Dictionary<(int Start, int End), (List<string> Ids, List<string> Missing)> citationPlans = [];
+        List<string> missingCitations = [];
+        HashSet<(int Start, int End)> unsafeRanges = [];
+        List<string> unchangedCitations = [];
         try
         {
+            // Word may normalize field results while opening a copied document.
+            // Use fresh positions from the exact document that will be edited.
+            var convertedFields = CaptureEndNoteFields((object)converted, null);
+            citationPlans = convertedFields.Where(field => !field.IsBibliography)
+                .ToDictionary(field => (field.Start, field.End), field => ResolveCitation(field.Code, field.ResultText, imported.Items, ids));
+            missingCitations = citationPlans.Values.SelectMany(plan => plan.Missing).Distinct(StringComparer.Ordinal).ToList();
+            unsafeRanges = FindOverlappingCitationRanges(convertedFields);
+            Log($"endnote-copy conversion-scan fields={convertedFields.Count} overlapping-ranges={unsafeRanges.Count}");
+            Log($"endnote-copy citation-resolution resolved={citationPlans.Values.Sum(plan => plan.Ids.Count)} missing={missingCitations.Count}");
+            foreach (var field in convertedFields.Where(field => !field.IsBibliography))
+                if (citationPlans[(field.Start, field.End)].Missing.Count > 0)
+                    Log($"endnote-copy unmatched position={field.Start} text={field.ResultText.Trim()} missing={string.Join("; ", citationPlans[(field.Start, field.End)].Missing)}");
+
             // Process from the end so field removal cannot shift the remaining Word ranges.
-            foreach (var entry in fields.OrderByDescending(field => field.Start))
+            foreach (var entry in convertedFields.OrderByDescending(field => field.Start).ThenByDescending(field => field.End))
             {
-                if (entry.IsBibliography)
+                if (!entry.IsBibliography && unsafeRanges.Contains((entry.Start, entry.End)))
                 {
-                    dynamic bibliographyFields = converted.Fields;
-                    for (var j = (int)bibliographyFields.Count; j >= 1; j--)
-                    {
-                        dynamic f = bibliographyFields[j];
-                        if (((string)f.Code.Text).TrimStart().StartsWith("ADDIN EN.REFLIST", StringComparison.OrdinalIgnoreCase))
-                        { f.Result.Text = ""; f.Unlink(); }
-                    }
+                    Log($"endnote-copy skipped-overlapping-field start={entry.Start} end={entry.End}");
+                    unchangedCitations.Add(entry.ResultText.Trim());
                     continue;
                 }
-                var plan = citationPlans[entry.Start];
-                // Unlink leaves the rendered citation text in the document; replace only its field wrapper.
-                dynamic matchField = null!;
-                for (var j = (int)converted.Fields.Count; j >= 1; j--)
+                dynamic? matchField = FindEndNoteField((object)converted, entry);
+                if (matchField is null)
                 {
-                    dynamic f = converted.Fields[j];
-                    if ((int)f.Result.Start == entry.Start && ((string)f.Code.Text).TrimStart().StartsWith("ADDIN EN.CITE", StringComparison.OrdinalIgnoreCase)) { matchField = f; break; }
+                    Log($"endnote-copy skipped-missing-field start={entry.Start} end={entry.End}");
+                    if (!entry.IsBibliography) unchangedCitations.Add(entry.ResultText.Trim());
+                    continue;
                 }
-                if (matchField is null) continue;
+                var actualText = (string)matchField.Result.Text;
+                if (!string.Equals(actualText, entry.ResultText, StringComparison.Ordinal))
+                {
+                    Log($"endnote-copy skipped-changed-result start={entry.Start} expected={entry.ResultText.Length} actual={actualText.Length}");
+                    if (!entry.IsBibliography) unchangedCitations.Add(entry.ResultText.Trim());
+                    continue;
+                }
+                if (entry.IsBibliography)
+                {
+                    var resultRange = matchField.Result;
+                    matchField.Unlink();
+                    if (string.Equals((string)resultRange.Text, entry.ResultText, StringComparison.Ordinal))
+                        resultRange.Text = "";
+                    continue;
+                }
+                var plan = citationPlans[(entry.Start, entry.End)];
+                var citationResultRange = matchField.Result;
                 matchField.Unlink();
-                dynamic fieldRange = converted.Range(entry.Start, entry.End);
+                dynamic fieldRange = converted.Range((int)citationResultRange.Start, (int)citationResultRange.End);
+                if (!string.Equals((string)fieldRange.Text, entry.ResultText, StringComparison.Ordinal))
+                {
+                    Log($"endnote-copy preserved-changed-range start={entry.Start} end={entry.End}");
+                    unchangedCitations.Add(entry.ResultText.Trim());
+                    continue;
+                }
                 if (plan.Ids.Count == 0)
                 {
-                    WriteMissingCitationMarker(fieldRange, FormatMissingCitationMarker(plan.Missing, entry.ResultText));
+                    try { fieldRange.HighlightColorIndex = 7; } catch { }
+                    AppendMissingCitationMarker((object)converted, (int)fieldRange.End, plan.Missing, entry.ResultText);
                     continue;
                 }
                 dynamic control = converted.ContentControls.Add(0, fieldRange);
                 CitationDocument.PrepareForConversion(control, CitationDocument.BuildTag("parenthetical", plan.Ids));
                 if (plan.Missing.Count > 0)
                 {
-                    dynamic markerRange = converted.Range((int)control.Range.End, (int)control.Range.End);
-                    WriteMissingCitationMarker(markerRange, FormatMissingCitationMarker(plan.Missing, entry.ResultText));
+                    AppendMissingCitationMarker((object)converted, (int)control.Range.End, plan.Missing, entry.ResultText);
                 }
             }
             CitationDocument.BindLibrary(converted, libraryPath);
@@ -323,7 +339,7 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
             converted.Save();
             convertedDocumentSaved = true;
             store.Checkpoint();
-            var bibliographyControls = CountBibliographyControls(converted);
+            var bibliographyControls = CountBibliographyControls((object)converted);
             if (citationPlans.Values.Any(plan => plan.Ids.Count > 0) && bibliographyControls == 0)
                 throw new InvalidOperationException("引文已转换，但文末参考文献列表未生成。副本文档和 .acnote 文献库已保留，请重新打开副本后点击“更新文献列表”。");
             Log($"endnote-copy saved references={store.Count()} bibliography-controls={bibliographyControls} library={libraryPath}");
@@ -341,10 +357,15 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
         var summary = new StringBuilder($"已创建 AcNote 副本：\n{copyPath}\n\n已导入 {store.Count()} 条文献记录。原文档仍保留 EndNote 引用。");
         if (missingCitations.Count > 0)
         {
-            summary.AppendLine().AppendLine().AppendLine("以下引用未能在所选文献库中唯一匹配，副本中已在原位置标红标注：");
+            summary.AppendLine().AppendLine().AppendLine("以下引用未能唯一匹配：原引文文字已保留，并在黄色提示处标注：");
             foreach (var missing in missingCitations) summary.AppendLine("• " + missing);
         }
-        else
+        if (unchangedCitations.Count > 0)
+        {
+            summary.AppendLine().AppendLine().AppendLine("以下引用范围无法安全确认，已保留原文，没有自动替换：");
+            foreach (var citation in unchangedCitations.Distinct(StringComparer.Ordinal)) summary.AppendLine("• " + citation);
+        }
+        if (missingCitations.Count == 0 && unchangedCitations.Count == 0)
         {
             summary.AppendLine().AppendLine().Append("所有文中引用均已匹配。");
         }
@@ -364,6 +385,65 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
                 count++;
         }
         return count;
+    }
+
+    private static List<EndNoteField> CaptureEndNoteFields(object document, StringBuilder? travelingXml)
+    {
+        dynamic wordDocument = document;
+        dynamic fields = wordDocument.Fields;
+        var captured = new List<EndNoteField>();
+        for (var i = 1; i <= (int)fields.Count; i++)
+        {
+            dynamic field = fields[i];
+            var code = (string)field.Code.Text;
+            var upper = code.TrimStart();
+            var isData = upper.StartsWith("ADDIN EN.CITE.DATA", StringComparison.OrdinalIgnoreCase);
+            var isCite = !isData && upper.StartsWith("ADDIN EN.CITE", StringComparison.OrdinalIgnoreCase);
+            var isBibliography = upper.StartsWith("ADDIN EN.REFLIST", StringComparison.OrdinalIgnoreCase);
+            if (isCite || isData) travelingXml?.AppendLine(System.Net.WebUtility.HtmlDecode(code));
+            if (isCite || isBibliography)
+                captured.Add(new EndNoteField((int)field.Result.Start, (int)field.Result.End, code, isBibliography, (string)field.Result.Text));
+        }
+        return captured
+            .GroupBy(field => (field.Start, field.End, field.IsBibliography))
+            .Select(group => group.First())
+            .OrderBy(field => field.Start)
+            .ThenBy(field => field.End)
+            .ToList();
+    }
+
+    private static dynamic? FindEndNoteField(object document, EndNoteField expected)
+    {
+        dynamic wordDocument = document;
+        dynamic fields = wordDocument.Fields;
+        var prefix = expected.IsBibliography ? "ADDIN EN.REFLIST" : "ADDIN EN.CITE";
+        for (var i = (int)fields.Count; i >= 1; i--)
+        {
+            dynamic field = fields[i];
+            if (!((string)field.Code.Text).TrimStart().StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
+            if ((int)field.Result.Start != expected.Start || (int)field.Result.End != expected.End) continue;
+            if (!string.Equals((string)field.Result.Text, expected.ResultText, StringComparison.Ordinal)) continue;
+            return field;
+        }
+        return null;
+    }
+
+    private static HashSet<(int Start, int End)> FindOverlappingCitationRanges(IReadOnlyList<EndNoteField> fields)
+    {
+        var citations = fields.Where(field => !field.IsBibliography).OrderBy(field => field.Start).ThenBy(field => field.End).ToArray();
+        var overlaps = new HashSet<(int Start, int End)>();
+        for (var i = 1; i < citations.Length; i++)
+        {
+            var current = citations[i];
+            for (var j = i - 1; j >= 0; j--)
+            {
+                var previous = citations[j];
+                if (previous.End <= current.Start) continue;
+                overlaps.Add((previous.Start, previous.End));
+                overlaps.Add((current.Start, current.End));
+            }
+        }
+        return overlaps;
     }
 
     private static List<string> RecordNumbers(string fieldCode) => EndNoteImporter.ExtractCitationRecordNumbers(fieldCode);
@@ -411,14 +491,19 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
         return (citeIds.Distinct(StringComparer.Ordinal).ToList(), missing.Distinct(StringComparer.Ordinal).ToList());
     }
 
-    private static string FormatMissingCitationMarker(IReadOnlyList<string> missing, string originalText) =>
-        "【AcNote未匹配引用：" + (missing.Count > 0 ? string.Join("；", missing) : originalText.Trim()) + "】";
-
-    private static void WriteMissingCitationMarker(dynamic range, string marker)
+    private static void AppendMissingCitationMarker(dynamic document, int position, IReadOnlyList<string> missing, string originalText)
     {
-        range.Text = marker;
-        range.Font.Color = 255;
-        range.Font.Bold = true;
+        var marker = " 【AcNote未匹配引用：" + (missing.Count > 0 ? string.Join("；", missing) : originalText.Trim()) + "】";
+        AppendMissingCitationMarker(document, position, marker);
+    }
+
+    private static void AppendMissingCitationMarker(dynamic document, int position, string marker)
+    {
+        dynamic insertion = document.Range(position, position);
+        insertion.InsertAfter(marker);
+        dynamic annotation = document.Range(position, position + marker.Length);
+        try { annotation.HighlightColorIndex = 7; } catch { }
+        try { annotation.Font.Bold = true; } catch { }
     }
 
     public void OnConvertNarrative(object control) => ConvertCitation("narrative");
