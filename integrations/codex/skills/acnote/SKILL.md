@@ -1,15 +1,23 @@
 ---
 name: acnote
-description: Use the user's currently open AcNote literature library to find, verify, insert, and update citations in an active Word document. Apply when writing or revising a Word manuscript that should use existing AcNote references; do not invent references or edit the .acnote database directly.
+description: Create or open AcNote literature libraries, import EndNote and other supported reference files, and find, verify, insert, or update citations in an active Word document. Apply when organizing source libraries or writing a Word manuscript with AcNote references; do not invent references or edit the .acnote database directly.
 ---
 
 # AcNote citation workflow
 
 Use the AcNote MCP tools as the only interface to the user's library and AcNote-managed Word citations. Do not read or write the `.acnote` SQLite file directly.
 
+## Prepare a library
+
+- Call `get_status` first. Reuse the current library when it is the user's intended target.
+- Use `create_library` only with an explicit absolute `.acnote` path. It never overwrites an existing library; do not delete or rename an existing target to force creation.
+- Use `open_library` for an existing `.acnote` file.
+- Use `import_references` only after the intended target library is open. Pass absolute paths and preserve each EndNote `.enl` file beside its matching `.Data` directory.
+- Review every per-file result. Report added and updated counts, warnings, and failures. A partial import may have already added valid records; do not retry the whole batch blindly.
+
 ## Find and verify references
 
-1. Call `get_status` before a citation workflow. If AcNote, its library, or the required Word document is unavailable, tell the user exactly what to open.
+1. Call `get_status` before a citation workflow. If AcNote, its intended library, or the required Word document is unavailable, tell the user exactly what to open.
 2. Search with meaningful title, author, year, DOI, or topic terms. Treat search results as candidates, not automatic proof that a source supports a claim.
 3. Call `get_references` for the final candidate IDs. Never invent or reconstruct an ID.
 4. Report material missing fields before insertion. Prefer a complete matching record when duplicates exist; ask the user when identity or relevance is genuinely ambiguous.

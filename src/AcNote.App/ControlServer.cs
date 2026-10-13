@@ -99,6 +99,9 @@ public sealed class ControlServer : IDisposable
                 "choose-style" => OnUi(ChooseStyle),
                 "edit-style" => OnUi(() => EditStyle(document.RootElement.TryGetProperty("styleId", out var style) ? style.GetString() : null)),
                 "ai-status" => OnUi(AiStatus),
+                "ai-create-library" => OnUi(() => AiCreateLibrary(Text(document.RootElement, "path"))),
+                "ai-open-library" => OnUi(() => AiOpenLibrary(Text(document.RootElement, "path"))),
+                "ai-import-references" => OnUi(() => AiImportReferences(Strings(document.RootElement, "paths"))),
                 "ai-search-references" => OnUi(() => AiSearch(
                     Text(document.RootElement, "query"), Number(document.RootElement, "limit", 10))),
                 "ai-get-references" => OnUi(() => AiGetReferences(Strings(document.RootElement, "ids"))),
@@ -176,6 +179,52 @@ public sealed class ControlServer : IDisposable
             wordRunning = word is not null,
             documentName,
             documentPath,
+        });
+    }
+
+    private string AiCreateLibrary(string path)
+    {
+        _window.CreateLibrary(path);
+        return JsonSerializer.Serialize(new
+        {
+            ok = true,
+            created = true,
+            libraryPath = _session.LibraryPath,
+            referenceCount = _session.Store?.Count() ?? 0,
+        });
+    }
+
+    private string AiOpenLibrary(string path)
+    {
+        _window.OpenLibrary(path);
+        return JsonSerializer.Serialize(new
+        {
+            ok = true,
+            opened = true,
+            libraryPath = _session.LibraryPath,
+            referenceCount = _session.Store?.Count() ?? 0,
+        });
+    }
+
+    private string AiImportReferences(IReadOnlyList<string> paths)
+    {
+        RequireStore();
+        if (paths.Count == 0) return Fail("至少需要一个要导入的文献文件路径。");
+        if (paths.Count > 20) return Fail("一次最多导入 20 个文献文件。");
+        if (paths.Any(path => !Path.IsPathFullyQualified(path))) return Fail("所有导入文件都必须使用绝对路径。");
+        if (paths.Any(path => Path.GetExtension(path).Equals(".acnote", StringComparison.OrdinalIgnoreCase)))
+            return Fail("import_references 不接受 .acnote 文件；请使用 open_library。");
+        var summary = _window.OpenFiles(paths.Select(Path.GetFullPath), showWarnings: false);
+        return JsonSerializer.Serialize(new
+        {
+            ok = true,
+            allSucceeded = summary.Files.All(file => file.Error is null),
+            partial = summary.Files.Any(file => file.Error is not null) && summary.Files.Any(file => file.Added > 0 || file.Updated > 0),
+            summary.Added,
+            summary.Updated,
+            summary.LibraryCount,
+            summary.Files,
+            libraryPath = _session.LibraryPath,
         });
     }
 

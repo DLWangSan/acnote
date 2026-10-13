@@ -54,7 +54,7 @@ internal static class McpHost
         {
             protocolVersion = requested ?? "2025-06-18",
             capabilities = new { tools = new { listChanged = false } },
-            serverInfo = new { name = "acnote", version = "0.1.0" },
+            serverInfo = new { name = "acnote", version = typeof(McpHost).Assembly.GetName().Version?.ToString(3) ?? "0.0.0" },
             instructions = "Use AcNote's currently open library. Read and verify references before inserting. Never guess reference IDs or ambiguous Word positions."
         };
     }
@@ -86,6 +86,9 @@ internal static class McpHost
     private static object BuildCommand(string name, JsonElement args) => name switch
     {
         "get_status" => new { cmd = "ai-status" },
+        "create_library" => new { cmd = "ai-create-library", path = StringArg(args, "path") },
+        "open_library" => new { cmd = "ai-open-library", path = StringArg(args, "path") },
+        "import_references" => new { cmd = "ai-import-references", paths = StringArrayArg(args, "paths") },
         "search_references" => new { cmd = "ai-search-references", query = StringArg(args, "query"), limit = IntArg(args, "limit", 10) },
         "get_references" => new { cmd = "ai-get-references", ids = StringArrayArg(args, "ids") },
         "get_word_context" => new { cmd = "ai-word-context", radius = IntArg(args, "radius", 500) },
@@ -115,6 +118,9 @@ internal static class McpHost
     private static readonly object[] Tools =
     [
         Tool("get_status", "Check AcNote, its current library and the active Word document before a reference workflow.", new { type = "object", properties = new { }, additionalProperties = false }, true),
+        Tool("create_library", "Create and open a new AcNote library at an absolute .acnote path. Refuses to overwrite an existing library or companion files.", new { type = "object", properties = new { path = new { type = "string", description = "Absolute path ending in .acnote." } }, required = new[] { "path" }, additionalProperties = false }, false),
+        Tool("open_library", "Open an existing .acnote library as AcNote's current library.", new { type = "object", properties = new { path = new { type = "string", description = "Absolute path to an existing .acnote file." } }, required = new[] { "path" }, additionalProperties = false }, false),
+        Tool("import_references", "Import up to 20 EndNote, BibTeX, RIS, CSL JSON, or Zotero files into AcNote's current library. Returns per-file added, updated, warning, and error details.", new { type = "object", properties = new { paths = new { type = "array", items = new { type = "string" }, minItems = 1, maxItems = 20, description = "Absolute source file paths. EndNote .enl files must retain their matching .Data directories." } }, required = new[] { "paths" }, additionalProperties = false }, false),
         Tool("search_references", "Search the current AcNote library by title, author, year, journal, DOI, URL or source key. Returns stable AcNote reference IDs and formatted previews.", new { type = "object", properties = new { query = new { type = "string" }, limit = new { type = "integer", minimum = 1, maximum = 50, @default = 10 } }, required = new[] { "query" }, additionalProperties = false }, true),
         Tool("get_references", "Read exact records from the current AcNote library by stable IDs and check missing fields for the current style.", new { type = "object", properties = new { ids = new { type = "array", items = new { type = "string" }, minItems = 1, maxItems = 50 } }, required = new[] { "ids" }, additionalProperties = false }, true),
         Tool("get_word_context", "Inspect the active Word document and current selection, including nearby text and AcNote binding. Use before choosing an insertion position.", new { type = "object", properties = new { radius = new { type = "integer", minimum = 100, maximum = 2000, @default = 500 } }, additionalProperties = false }, true),

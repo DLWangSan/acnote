@@ -1,4 +1,4 @@
-param([string]$Codex = 'codex')
+param([string]$Codex = '')
 
 $ErrorActionPreference = 'Stop'
 $integrationRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -8,6 +8,21 @@ $sourceSkill = Join-Path $integrationRoot 'skills\acnote'
 $codexRoot = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $env:USERPROFILE '.codex' }
 $skillRoot = Join-Path $codexRoot 'skills'
 $targetSkill = Join-Path $skillRoot 'acnote'
+
+if (-not $Codex) {
+    if ($env:CODEX_CLI_PATH -and (Test-Path -LiteralPath $env:CODEX_CLI_PATH)) {
+        $Codex = $env:CODEX_CLI_PATH
+    } else {
+        $desktopBin = Join-Path $env:LOCALAPPDATA 'OpenAI\Codex\bin'
+        $Codex = Get-ChildItem -LiteralPath $desktopBin -Filter codex.exe -Recurse -File -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName
+    }
+}
+if (-not $Codex -or -not (Test-Path -LiteralPath $Codex)) {
+    $command = Get-Command codex -ErrorAction SilentlyContinue
+    if ($command) { $Codex = $command.Source }
+}
+if (-not $Codex) { throw 'Codex CLI was not found. Install Codex Desktop or pass -Codex with the full codex.exe path.' }
 
 if (-not (Test-Path -LiteralPath $server)) { throw "AcNote MCP server not found: $server" }
 if (-not (Test-Path -LiteralPath (Join-Path $sourceSkill 'SKILL.md'))) { throw "AcNote skill not found: $sourceSkill" }

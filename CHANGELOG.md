@@ -1,5 +1,11 @@
 # 更新记录
 
+## 0.1.15
+
+- AcNote MCP 新增创建文献库、打开已有文献库和批量导入文献工具，支持一次导入多个 EndNote、BibTeX、RIS、CSL JSON 或 Zotero 文件。
+- 创建文献库要求绝对 `.acnote` 路径，发现现有库或伴随文件时拒绝覆盖；批量导入返回逐文件新增、更新、警告和失败结果。
+- 更新 `acnote` Skill 的建库与导入工作流；Codex 安装脚本可自动定位 Codex Desktop 内置 CLI，不再要求 `codex` 命令已加入 PATH。
+
 ## 0.1.14
 
 - 新增本机 AcNote MCP 服务，让 Codex 通过当前运行的 AcNote 检索和读取当前文献库，不直接访问或修改 `.acnote` 数据库。

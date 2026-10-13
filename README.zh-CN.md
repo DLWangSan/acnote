@@ -69,7 +69,7 @@ Author-Year 的文中引用用姓：`(袁隆平, 1966)`、`(Watson and Crick, 19
 
 ### Codex 与 MCP
 
-安装包包含本机 `AcNote.Mcp.exe` 和 `acnote` Skill。它们让 Codex 通过正在运行的 AcNote 使用当前打开的文献库，并在当前 Word 文档中检索、核对、插入和更新 AcNote 引用；不会另建文献库，也不会让 Codex 直接修改 `.acnote` 数据库。
+安装包包含本机 `AcNote.Mcp.exe` 和 `acnote` Skill。它们让 Codex 通过正在运行的 AcNote 创建或打开文献库、批量导入 EndNote 等文献文件，并在当前 Word 文档中检索、核对、插入和更新 AcNote 引用；不会让 Codex 直接修改 `.acnote` 数据库。
 
 安装 AcNote 后，在 PowerShell 中运行：
 

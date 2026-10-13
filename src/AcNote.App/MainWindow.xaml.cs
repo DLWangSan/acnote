@@ -386,15 +386,7 @@ public partial class MainWindow : Window
 
         try
         {
-            SaveShown();
-            var path = dialog.FileName;
-            DeleteLibraryFiles(path);
-            var store = new LibraryStore(path);
-            _shownId = null;
-            _recentIds.Clear();
-            ReferenceList.SelectedItems.Clear();
-            _session.UseLibrary(store, path);
-            Reload(store.List().FirstOrDefault()?.Id);
+            CreateLibrary(dialog.FileName, overwrite: true);
         }
         catch (Exception ex)
         {
@@ -414,13 +406,7 @@ public partial class MainWindow : Window
 
         try
         {
-            SaveShown();
-            var store = new LibraryStore(dialog.FileName);
-            _shownId = null;
-            _recentIds.Clear();
-            ReferenceList.SelectedItems.Clear();
-            _session.UseLibrary(store, dialog.FileName);
-            Reload(store.List().FirstOrDefault()?.Id);
+            OpenLibrary(dialog.FileName);
         }
         catch (Exception ex)
         {
@@ -476,13 +462,43 @@ public partial class MainWindow : Window
         LibraryName.Text = _session.LibraryPath;
     }
 
-    private static void DeleteLibraryFiles(string path)
+    public void CreateLibrary(string path, bool overwrite = false)
     {
-        foreach (var candidate in new[] { path, path + "-wal", path + "-shm" })
-        {
-            if (File.Exists(candidate))
-                File.Delete(candidate);
-        }
+        path = ValidateLibraryPath(path);
+        var candidates = new[] { path, path + "-wal", path + "-shm" };
+        if (!overwrite && candidates.Any(File.Exists))
+            throw new IOException("目标文献库已经存在；为避免覆盖，请改用打开文献库或选择新路径：" + path);
+        if (overwrite)
+            foreach (var candidate in candidates)
+                if (File.Exists(candidate)) File.Delete(candidate);
+        UseLibrary(new LibraryStore(path), path);
+    }
+
+    public void OpenLibrary(string path)
+    {
+        path = ValidateLibraryPath(path);
+        if (!File.Exists(path)) throw new FileNotFoundException("找不到 AcNote 文献库。", path);
+        UseLibrary(new LibraryStore(path), path);
+    }
+
+    private void UseLibrary(LibraryStore store, string path)
+    {
+        SaveShown();
+        _shownId = null;
+        _recentIds.Clear();
+        ReferenceList.SelectedItems.Clear();
+        _session.UseLibrary(store, path);
+        Reload(store.List().FirstOrDefault()?.Id);
+    }
+
+    private static string ValidateLibraryPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) throw new ArgumentException("文献库路径不能为空。");
+        if (!Path.IsPathFullyQualified(path)) throw new ArgumentException("文献库路径必须是绝对路径。");
+        path = Path.GetFullPath(path);
+        if (!Path.GetExtension(path).Equals(".acnote", StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("文献库路径必须以 .acnote 结尾。");
+        return path;
     }
 
     private bool EnsureLibrary()
@@ -548,26 +564,32 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    public void OpenFiles(IEnumerable<string> paths)
+    public ImportSummary OpenFiles(IEnumerable<string> paths, bool showWarnings = true)
     {
         SaveShown();
         var added = 0; var updated = 0; var warnings = new List<string>();
+        var files = new List<ImportFileSummary>();
         _recentIds.Clear();
         foreach (var path in paths.Distinct(StringComparer.OrdinalIgnoreCase))
         {
+            var fileAdded = 0; var fileUpdated = 0; var fileWarnings = new List<string>();
             try
             {
                 if (!File.Exists(path)) throw new FileNotFoundException("找不到文件。", path);
                 if (Path.GetExtension(path).Equals(".acnote", StringComparison.OrdinalIgnoreCase))
                 {
-                    var opened = new LibraryStore(path);
-                    _shownId = null; ReferenceList.SelectedItems.Clear();
-                    _session.UseLibrary(opened, path);
+                    OpenLibrary(path);
+                    files.Add(new(path, 0, 0, [], null));
                     continue;
                 }
                 var imported = ReferenceImporter.Import(path);
-                warnings.AddRange(imported.Warnings.Select(w => Path.GetFileName(path) + "：" + w));
-                if (imported.Items.Count == 0) continue;
+                fileWarnings.AddRange(imported.Warnings);
+                warnings.AddRange(fileWarnings.Select(w => Path.GetFileName(path) + "：" + w));
+                if (imported.Items.Count == 0)
+                {
+                    files.Add(new(path, 0, 0, fileWarnings, null));
+                    continue;
+                }
                 if (_session.Store is null)
                 {
                     var temporary = Path.Combine(AppPaths.Root, "Libraries", $"临时文献库-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.acnote");
@@ -577,28 +599,34 @@ public partial class MainWindow : Window
                 foreach (var item in imported.Items)
                 {
                     var existing = store.FindBySource(item.SourceKey);
-                    if (existing is null) { item.Id = Guid.NewGuid().ToString("N"); added++; }
+                    if (existing is null) { item.Id = Guid.NewGuid().ToString("N"); added++; fileAdded++; }
                     else
                     {
                         item.Id = existing.Id;
                         foreach (var pair in existing.Extra) item.Extra.TryAdd(pair.Key, pair.Value);
-                        updated++;
+                        updated++; fileUpdated++;
                     }
                     store.Save(item); _recentIds.Add(item.Id);
                 }
+                files.Add(new(path, fileAdded, fileUpdated, fileWarnings, null));
             }
-            catch (Exception ex) { warnings.Add(Path.GetFileName(path) + "：" + ex.Message); }
+            catch (Exception ex)
+            {
+                warnings.Add(Path.GetFileName(path) + "：" + ex.Message);
+                files.Add(new(path, fileAdded, fileUpdated, fileWarnings, ex.Message));
+            }
         }
         // Discard the old editor snapshot before reloading an updated selected record.
         _shownId = null;
         _filterMode = "all"; AllReferences.IsChecked = true; FilterBox.Clear();
         Reload(_recentIds.FirstOrDefault());
         SummaryText.Text = $"导入 {added} 条，更新 {updated} 条；当前库 {_session.Store?.Count() ?? 0} 条";
-        if (warnings.Count > 0)
+        if (showWarnings && warnings.Count > 0)
         {
             SummaryText.Text += $"；{warnings.Count} 项提示";
             MessageBox.Show(this, string.Join("\n", warnings.Take(12)) + (warnings.Count > 12 ? "\n其余提示已省略。" : ""), "导入提示");
         }
+        return new ImportSummary(added, updated, _session.Store?.Count() ?? 0, files);
     }
 
     private void ImportStyle_Click(object sender, RoutedEventArgs e)
