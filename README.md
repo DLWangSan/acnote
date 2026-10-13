@@ -55,6 +55,7 @@ Run AcNote once, save your documents, then **close every Word window and reopen 
 - **查找并插入 / Find and insert** opens the searchable picker.
 - **存为 AcNote 版副本 / Save as AcNote copy** converts EndNote citations in a new document beside the original and leaves the source file untouched. Formatted EndNote documents usually carry a Traveling Library with the references cited in that document; if records or citation numbers are missing, the add-in asks for the matching `.enl`, `.enlx`, or EndNote XML file. Uncited references from the original EndNote library are not stored in the Word document and require importing that library separately.
 - **编辑引用 / Edit citation** restores the existing selection. **移除此处引用 / Remove citation** removes that occurrence and renumbers the document.
+- **Ctrl+click a citation marker** jumps to its matching bibliography entry. In grouped citations, each visible marker links to its own entry.
 - **更新引用和列表 / Update citations and bibliography** refreshes the document. Use the adjacent style dropdown to switch styles.
 - **字体、段落与版式 / Fonts, paragraphs and style** configures citation and bibliography fonts, sizes and superscript, plus bibliography line spacing, paragraph spacing, hanging indent and alignment.
 

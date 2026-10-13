@@ -1,4 +1,6 @@
 using AcNote.Core;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -11,6 +13,8 @@ public static class CitationDocument
     public const string LibraryVariable = "AcNoteLibrary";
     public const string TypographyVariable = "AcNoteTypography";
     private const string RenderedPrefix = "AcNoteRendered_";
+    private const string ReferenceBookmarkPrefix = "AcNoteRef_";
+    private sealed record CitationLinkSpan(int Start, int Length, string ReferenceId);
 
     private static string? PreviousText(dynamic document, string id)
     {
@@ -272,6 +276,7 @@ public static class CitationDocument
         var bibliographyFormat = DocumentTypography.Resolve(style.BibliographyFormat, typography.Bibliography);
         var listOptions = BibliographyOptions.Resolve(style.BibliographyOptions, typography.List);
         var cites = new List<(int Start, int End, string Id, string Form, List<string> Ids)>();
+        var citationLinks = new List<(string Id, string Text, List<CitationLinkSpan> Spans)>();
         dynamic? bibliography = null;
         var count = (int)wordDocument.ContentControls.Count;
         var boundaries = new List<(int Start, int End)>();
@@ -353,6 +358,8 @@ public static class CitationDocument
             SetText(current, rendered);
             ApplyFormat(current.Range, citationFormat, false);
             RememberText(wordDocument, cite.Id, rendered);
+            citationLinks.Add((cite.Id, rendered, BuildCitationLinkSpans(rendered, cite.Ids, authorYear,
+                cite.Form == "narrative", records, numbers, years, style)));
             // Word removes the wrapper when the user edits/deletes its text.
             // This avoids empty "click here" placeholders and stale tags later
             // overwriting prose. Programmatic refresh disables this first.
@@ -362,6 +369,8 @@ public static class CitationDocument
 
         if (order.Count == 0)
         {
+            RemoveReferenceHyperlinks(wordDocument);
+            RemoveReferenceBookmarks(wordDocument);
             if (bibliography is not null)
             {
                 bibliography.LockContentControl = false;
@@ -372,6 +381,7 @@ public static class CitationDocument
         }
 
         var lines = new List<string>();
+        var bibliographyIds = new List<string>();
         var numberedList = !authorYear || listOptions.NumberAuthorYear == true;
         var numberSeparator = bibliographyFormat.HangingIndent > 0 ? "\t" : " ";
         if (authorYear)
@@ -381,6 +391,7 @@ public static class CitationDocument
             {
                 var prefix = numberedList ? $"[{lines.Count + 1}]" + numberSeparator : "";
                 lines.Add(prefix + BibliographyFormatter.Format(entry, style, years.GetValueOrDefault(entry.Id)).Text);
+                bibliographyIds.Add(entry.Id);
             }
         }
         else
@@ -392,6 +403,7 @@ public static class CitationDocument
                     ? "（库中已无此文献）"
                     : BibliographyFormatter.Format(item, style).Text;
                 lines.Add($"[{numbers[id]}]" + numberSeparator + body);
+                bibliographyIds.Add(id);
             }
         }
 
@@ -399,6 +411,8 @@ public static class CitationDocument
             bibliography = CreateBibliography(wordDocument);
 
         EnsureBibliographyParagraph(wordDocument, bibliography);
+        RemoveReferenceHyperlinks(wordDocument);
+        RemoveReferenceBookmarks(wordDocument);
         SetText(bibliography, string.Join("\r", lines));
         ApplyFormat(bibliography.Range, bibliographyFormat, true);
         if (numberedList && bibliographyFormat.HangingIndent is > 0)
@@ -410,6 +424,130 @@ public static class CitationDocument
             tabs.Add((float)bibliographyFormat.HangingIndent.Value, 0, 0);
         }
         RememberText(wordDocument, (string)bibliography.ID, string.Join("\r", lines));
+        var bookmarks = CreateReferenceBookmarks(wordDocument, bibliography, bibliographyIds, lines);
+        foreach (var citation in citationLinks)
+        {
+            dynamic current = FindControl(document, citation.Id);
+            AddCitationHyperlinks(wordDocument, current, citation.Spans, bookmarks);
+        }
+    }
+
+    private static List<CitationLinkSpan> BuildCitationLinkSpans(
+        string rendered,
+        IReadOnlyList<string> ids,
+        bool authorYear,
+        bool narrative,
+        IReadOnlyDictionary<string, ReferenceItem> records,
+        IReadOnlyDictionary<string, int> numbers,
+        IReadOnlyDictionary<string, string> years,
+        ResolvedStyle style)
+    {
+        var spans = new List<CitationLinkSpan>();
+        if (!authorYear)
+        {
+            var idByNumber = numbers.ToDictionary(pair => pair.Value, pair => pair.Key);
+            foreach (Match match in Regex.Matches(rendered, @"\d+"))
+                if (int.TryParse(match.Value, out var number) && idByNumber.TryGetValue(number, out var id)
+                    && ids.Contains(id, StringComparer.Ordinal))
+                    spans.Add(new(match.Index, match.Length, id));
+            return spans;
+        }
+
+        var offset = 0;
+        foreach (var id in ids)
+        {
+            if (!records.TryGetValue(id, out var item)) continue;
+            var piece = InTextFormatter.Format([item], style.CitationEtAl, narrative, years, style.CitationPunctuation);
+            if (!narrative)
+            {
+                var chinese = LanguageDetector.Resolve(item) == "zh";
+                var open = style.CitationPunctuation.OpenBracket ?? (chinese ? "（" : "(");
+                var close = style.CitationPunctuation.CloseBracket ?? (chinese ? "）" : ")");
+                if (open.Length > 0 && piece.StartsWith(open, StringComparison.Ordinal)) piece = piece[open.Length..];
+                if (close.Length > 0 && piece.EndsWith(close, StringComparison.Ordinal)) piece = piece[..^close.Length];
+            }
+            if (piece.Length == 0) continue;
+            var start = rendered.IndexOf(piece, offset, StringComparison.Ordinal);
+            if (start < 0) continue;
+            spans.Add(new(start, piece.Length, id));
+            offset = start + piece.Length;
+        }
+        return spans;
+    }
+
+    private static string ReferenceBookmarkName(string id)
+    {
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(id)));
+        return ReferenceBookmarkPrefix + hash[..24];
+    }
+
+    private static void RemoveReferenceBookmarks(dynamic document)
+    {
+        dynamic bookmarks = document.Bookmarks;
+        for (var index = (int)bookmarks.Count; index >= 1; index--)
+        {
+            dynamic bookmark = bookmarks[index];
+            if (((string)bookmark.Name).StartsWith(ReferenceBookmarkPrefix, StringComparison.Ordinal))
+                bookmark.Delete();
+        }
+    }
+
+    private static void RemoveReferenceHyperlinks(dynamic document)
+    {
+        dynamic hyperlinks = document.Hyperlinks;
+        for (var index = (int)hyperlinks.Count; index >= 1; index--)
+        {
+            dynamic hyperlink = hyperlinks[index];
+            try
+            {
+                var target = (string)hyperlink.SubAddress;
+                if (target.StartsWith(ReferenceBookmarkPrefix, StringComparison.Ordinal))
+                    hyperlink.Delete();
+            }
+            catch { /* Ignore unrelated or unsupported hyperlinks. */ }
+        }
+    }
+
+    private static Dictionary<string, string> CreateReferenceBookmarks(
+        dynamic document,
+        dynamic bibliography,
+        IReadOnlyList<string> ids,
+        IReadOnlyList<string> lines)
+    {
+        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+        var offset = 0;
+        var start = (int)bibliography.Range.Start;
+        for (var index = 0; index < Math.Min(ids.Count, lines.Count); index++)
+        {
+            var line = lines[index];
+            if (line.Length > 0)
+            {
+                var name = ReferenceBookmarkName(ids[index]);
+                dynamic target = document.Range(start + offset, start + offset + line.Length);
+                document.Bookmarks.Add(name, target);
+                result[ids[index]] = name;
+            }
+            offset += line.Length + 1; // Word paragraph marks are one character in Range positions.
+        }
+        return result;
+    }
+
+    private static void AddCitationHyperlinks(
+        dynamic document,
+        dynamic control,
+        IReadOnlyList<CitationLinkSpan> spans,
+        IReadOnlyDictionary<string, string> bookmarks)
+    {
+        var start = (int)control.Range.Start;
+        foreach (var span in spans.Where(span => bookmarks.ContainsKey(span.ReferenceId)).OrderByDescending(span => span.Start))
+        {
+            dynamic anchor = document.Range(start + span.Start, start + span.Start + span.Length);
+            document.Hyperlinks.Add(anchor, "", bookmarks[span.ReferenceId], "Ctrl+单击跳转到文末参考文献");
+            // Keep the link functional without letting Word's default blue/underline
+            // hyperlink style alter the citation's bibliography style.
+            anchor.Font.Color = -16777216; // wdColorAutomatic
+            anchor.Font.Underline = 0; // wdUnderlineNone
+        }
     }
 
     public static string GetStyleId(object document)

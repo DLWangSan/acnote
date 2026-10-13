@@ -34,6 +34,8 @@ internal static class Program
             CitationDocument.InsertAndRefresh(doc, app.Selection, new[] { "a", "b" }, "parenthetical", numeric, (Func<string, ReferenceItem?>)Lookup);
             var text = (string)doc.Content.Text;
             Check(text.Contains("正文测试。[1,2]\r\r[1]"), "Bibliography starts after a blank paragraph", text);
+            Check((int)doc.Hyperlinks.Count == 2, "Each numeric citation links to its bibliography entry", text);
+            Check((int)doc.Bookmarks.Count == 2, "Bibliography entries have internal jump targets", text);
             Check(!CitationDocument.SelectionIsCitation(app.Selection), "Caret exits the inserted control", text);
             var before = text;
             CitationDocument.Refresh(doc, numeric, (Func<string, ReferenceItem?>)Lookup);
@@ -44,6 +46,7 @@ internal static class Program
             CitationDocument.Refresh(doc, authorYear, (Func<string, ReferenceItem?>)Lookup);
             text = (string)doc.Content.Text;
             Check(text.Contains("2020a") && text.Contains("2020b"), "Shared year disambiguation", text);
+            Check((int)doc.Hyperlinks.Count == 2, "Citation links survive style changes and refresh", text);
             dynamic bib = doc.SelectContentControlsByTag(CitationDocument.BibliographyTag)[1];
             Check((float)bib.Range.ParagraphFormat.FirstLineIndent == -24, "Hanging indent is applied", text);
             // Reproduce the old inline bibliography and repair it on refresh.
@@ -59,6 +62,7 @@ internal static class Program
             app.Selection.SetRange((int)cite.Range.Start, (int)cite.Range.Start);
             CitationDocument.RemoveSelectedAndRefresh(doc, app.Selection, authorYear, (Func<string, ReferenceItem?>)Lookup);
             Check((int)doc.ContentControls.Count == 0, "Removing last citation removes the bibliography", (string)doc.Content.Text);
+            Check((int)doc.Hyperlinks.Count == 0 && (int)doc.Bookmarks.Count == 0, "Removing all citations removes their navigation links", (string)doc.Content.Text);
             Check(!((string)doc.Content.Text).Contains("Smith"), "No stale bibliography text remains", (string)doc.Content.Text);
             doc.Close(0);
             doc = app.Documents.Add();
