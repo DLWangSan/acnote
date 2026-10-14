@@ -1,5 +1,10 @@
 # 更新记录
 
+## 0.1.16
+
+- Speed up bibliography refresh and style changes for documents with many citations by avoiding repeated Word content-control scans and redundant navigation rebuilding.
+- Show refresh progress in a separate window while Word processes large citation lists.
+
 ## 0.1.15
 
 - AcNote MCP 新增创建文献库、打开已有文献库和批量导入文献工具，支持一次导入多个 EndNote、BibTeX、RIS、CSL JSON 或 Zotero 文件。

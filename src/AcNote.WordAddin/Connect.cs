@@ -157,7 +157,7 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
     public void OnUpdateCitations(object control) => Guard(() =>
     {
         var (document, _) = Active();
-        CitationDocument.Refresh(document, ResolveStyle(document, null), LookupFor(document));
+        RefreshWithProgress(document, ResolveStyle(document, null), LookupFor(document));
         InvalidateStyle();
     });
 
@@ -335,7 +335,7 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
             }
             CitationDocument.BindLibrary(converted, libraryPath);
             CitationDocument.SetStyleId(converted, Catalog().All.FirstOrDefault()?.Id ?? "");
-            CitationDocument.Refresh(converted, Catalog().Get(CitationDocument.GetStyleId(converted)), LookupFor(converted));
+            RefreshWithProgress(converted, Catalog().Get(CitationDocument.GetStyleId(converted)), LookupFor(converted));
             converted.Save();
             convertedDocumentSaved = true;
             store.Checkpoint();
@@ -527,7 +527,7 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
         if (dialog.ShowForWord(_application!) != System.Windows.Forms.DialogResult.OK) return;
         var lookup = LookupFor(document);
         CitationDocument.SetTypography(document, dialog.Value);
-        try { CitationDocument.Refresh(document, ResolveStyle(document, null), lookup); }
+        try { RefreshWithProgress(document, ResolveStyle(document, null), lookup); }
         catch { CitationDocument.SetTypography(document, previous); throw; }
         InvalidateStyle();
     });
@@ -568,10 +568,22 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
             return;
         var style = styles[selectedIndex];
         var (document, _) = Active();
-        CitationDocument.Refresh(document, style, LookupFor(document));
+        RefreshWithProgress(document, style, LookupFor(document));
         CitationDocument.SetStyleId(document, style.Id);
         InvalidateStyle();
     });
+
+    private static void RefreshWithProgress(object document, ResolvedStyle style, Func<string, ReferenceItem?> lookup)
+    {
+        dynamic wordDocument = document;
+        if ((int)wordDocument.ContentControls.Count < 30)
+        {
+            CitationDocument.Refresh(document, style, lookup);
+            return;
+        }
+        using var progress = new RefreshProgressWindow();
+        CitationDocument.Refresh(document, style, lookup, progress.Report);
+    }
 
     private (object Document, object Selection) Active()
     {
