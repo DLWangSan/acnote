@@ -15,6 +15,12 @@
 
 </div>
 
+## 视频教程
+
+[![AcNote 教程：EndNote 中英文混排与 Word/WPS 引用](images/acnote-tutorial.png)](https://www.bilibili.com/video/BV18bJY6cE9U/)
+
+[在哔哩哔哩观看](https://www.bilibili.com/video/BV18bJY6cE9U/) · [在 YouTube 观看](https://youtu.be/OCK8M3gybHE)
+
 ## 为什么做
 
 收集和阅读论文，现有工具已经够用。难的是按学校或期刊把参考文献排出来，尤其是一篇稿子里中英文都有：

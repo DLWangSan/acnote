@@ -15,6 +15,12 @@ A reference manager organized around citation styles: Chinese and English author
 
 </div>
 
+## Video tutorial
+
+[![AcNote tutorial: mixed Chinese and English EndNote references in Word/WPS](images/acnote-tutorial.png)](https://youtu.be/OCK8M3gybHE)
+
+[Watch on YouTube](https://youtu.be/OCK8M3gybHE) · [Watch on Bilibili](https://www.bilibili.com/video/BV18bJY6cE9U/)
+
 ## Why this project
 
 Collecting papers is a solved problem in several existing tools. Formatting the bibliography for a thesis or a journal is still awkward, especially when one document mixes Chinese and English:
