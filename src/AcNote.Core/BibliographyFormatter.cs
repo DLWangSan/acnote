@@ -7,11 +7,14 @@ public sealed class FormattedReference
 {
     public required string Text { get; init; }
     public required IReadOnlyList<string> Missing { get; init; }
+    public IReadOnlyList<FormattedTextSpan> Spans { get; init; } = [];
 }
+
+public sealed record FormattedTextSpan(int Start, int Length, bool Italic, bool Bold);
 
 public static class CitationNumbers
 {
-    public static string Format(IEnumerable<int> numbers)
+    public static string Format(IEnumerable<int> numbers, string rangeSeparator = "-")
     {
         var ordered = numbers.Where(number => number > 0).Distinct().OrderBy(number => number).ToList();
         if (ordered.Count == 0)
@@ -30,7 +33,7 @@ public static class CitationNumbers
             }
 
             if (end >= start + 2)
-                parts.Add($"{start}-{end}");
+                parts.Add($"{start}{rangeSeparator}{end}");
             else if (end == start)
                 parts.Add(start.ToString());
             else
@@ -54,6 +57,7 @@ public static class BibliographyFormatter
             : style.Templates.GetValueOrDefault("document") ?? [];
 
         var builder = new StringBuilder();
+        var spans = new List<FormattedTextSpan>();
         foreach (var token in tokens)
         {
             if (!string.IsNullOrEmpty(token.Literal) && string.IsNullOrEmpty(token.Field))
@@ -70,14 +74,31 @@ public static class BibliographyFormatter
                 continue;
 
             builder.Append(token.Prefix);
+            var valueStart = builder.Length;
             builder.Append(value);
             builder.Append(token.Suffix);
+            if (token.Italic == true || token.Bold == true)
+                spans.Add(new(valueStart, value.Length, token.Italic == true, token.Bold == true));
+        }
+
+        var sourceText = builder.ToString();
+        var text = Tidy(sourceText);
+        var normalizedSpans = new List<FormattedTextSpan>();
+        var searchFrom = 0;
+        foreach (var span in spans)
+        {
+            var value = sourceText.Substring(span.Start, span.Length);
+            var actualStart = text.IndexOf(value, searchFrom, StringComparison.Ordinal);
+            if (actualStart < 0) continue;
+            normalizedSpans.Add(span with { Start = actualStart });
+            searchFrom = actualStart + value.Length;
         }
 
         return new FormattedReference
         {
-            Text = Tidy(builder.ToString()),
+            Text = text,
             Missing = MissingFieldChecker.Check(item, style),
+            Spans = normalizedSpans,
         };
     }
 

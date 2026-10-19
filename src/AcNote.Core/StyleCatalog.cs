@@ -9,6 +9,8 @@ public sealed class StyleToken
     public string? Literal { get; set; }
     public string? Prefix { get; set; }
     public string? Suffix { get; set; }
+    public bool? Italic { get; set; }
+    public bool? Bold { get; set; }
 }
 
 public sealed class EtAlRule
@@ -17,6 +19,10 @@ public sealed class EtAlRule
     public int UseFirst { get; set; }
     public string? Zh { get; set; }
     public string? En { get; set; }
+    public string? AuthorSeparator { get; set; }
+    public string? FamilyInitialsSeparator { get; set; }
+    public string? InitialsSeparator { get; set; }
+    public bool? InitialsUsePeriods { get; set; }
 
     public static EtAlRule Default() => new()
     {
@@ -40,6 +46,7 @@ public sealed class CitationStyle
     public CitationPunctuation? Punctuation { get; set; }
     public TextLayout? Format { get; set; }
     public EtAlRule? EtAl { get; set; }
+    public string? RangeSeparator { get; set; }
 }
 
 public sealed class StyleFile
@@ -78,6 +85,7 @@ public sealed class ResolvedStyle
     public string? FilePath { get; set; }
     public EtAlRule EtAl { get; set; } = EtAlRule.Default();
     public EtAlRule CitationEtAl { get; set; } = EtAlRule.CitationDefault();
+    public string CitationRangeSeparator { get; set; } = "-";
     public CitationPunctuation CitationPunctuation { get; } = new();
     public Dictionary<string, List<StyleToken>> Templates { get; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, List<string>> Required { get; } = new(StringComparer.OrdinalIgnoreCase);
@@ -225,6 +233,8 @@ public sealed class StyleCatalog
                 ApplyEtAl(result.EtAl, part.EtAl);
             if (part.Citation?.EtAl is not null)
                 ApplyEtAl(result.CitationEtAl, part.Citation.EtAl);
+            if (part.Citation?.RangeSeparator is not null)
+                result.CitationRangeSeparator = part.Citation.RangeSeparator;
             if (part.Citation?.Format is not null) result.CitationFormat.Merge(part.Citation.Format);
             if (part.Citation?.Punctuation is not null) result.CitationPunctuation.Merge(part.Citation.Punctuation);
             if (part.BibliographyFormat is not null) result.BibliographyFormat.Merge(part.BibliographyFormat);
@@ -282,5 +292,13 @@ public sealed class StyleCatalog
             target.Zh = incoming.Zh;
         if (incoming.En is not null)
             target.En = incoming.En;
+        if (incoming.AuthorSeparator is not null)
+            target.AuthorSeparator = incoming.AuthorSeparator;
+        if (incoming.FamilyInitialsSeparator is not null)
+            target.FamilyInitialsSeparator = incoming.FamilyInitialsSeparator;
+        if (incoming.InitialsSeparator is not null)
+            target.InitialsSeparator = incoming.InitialsSeparator;
+        if (incoming.InitialsUsePeriods is not null)
+            target.InitialsUsePeriods = incoming.InitialsUsePeriods;
     }
 }

@@ -35,7 +35,7 @@ public static class AuthorFormatter
 
         var truncate = authors.Count >= rule.MinCount && rule.UseFirst > 0 && rule.UseFirst < authors.Count;
         var take = truncate ? rule.UseFirst : authors.Count;
-        var text = string.Join(", ", authors.Take(take).Select(FormatOne));
+        var text = string.Join(rule.AuthorSeparator ?? ", ", authors.Take(take).Select(author => FormatOne(author, rule)));
         if (!truncate)
             return text;
 
@@ -75,7 +75,9 @@ public static class AuthorFormatter
         };
     }
 
-    public static string FormatOne(Author author)
+    public static string FormatOne(Author author) => FormatOne(author, null);
+
+    private static string FormatOne(Author author, EtAlRule? rule)
     {
         var literal = author.Literal.Trim();
         var family = author.Family.Trim();
@@ -89,8 +91,8 @@ public static class AuthorFormatter
         if (string.IsNullOrEmpty(family) && !string.IsNullOrEmpty(literal))
             return FormatOne(Parse(literal));
 
-        var initials = Initials(given);
-        return string.IsNullOrEmpty(initials) ? family : $"{family} {initials}";
+        var initials = Initials(given, rule);
+        return string.IsNullOrEmpty(initials) ? family : $"{family}{rule?.FamilyInitialsSeparator ?? " "}{initials}";
     }
 
     private static string ToEditorLine(Author author)
@@ -104,7 +106,7 @@ public static class AuthorFormatter
         return $"{author.Family}, {author.Given}";
     }
 
-    private static string Initials(string given)
+    private static string Initials(string given, EtAlRule? rule = null)
     {
         if (string.IsNullOrWhiteSpace(given))
             return "";
@@ -116,7 +118,8 @@ public static class AuthorFormatter
             if (letter != default)
                 letters.Add(char.ToUpperInvariant(letter).ToString());
         }
-        return string.Join(' ', letters);
+        var separator = rule?.InitialsSeparator ?? " ";
+        return string.Join(separator, rule?.InitialsUsePeriods == true ? letters.Select(letter => letter + ".") : letters);
     }
 
     private static bool HasName(Author author) =>

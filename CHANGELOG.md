@@ -1,5 +1,10 @@
 # 更新记录
 
+## 0.1.17
+
+- Add an MDPI numeric reference style with appearance-order numbering, bracketed citations, en-dash ranges, DOI links, and journal/volume emphasis.
+- Allow styles to configure author separators, initials punctuation, numeric-range separators, and inline bold or italic formatting.
+
 ## 0.1.16
 
 - Speed up bibliography refresh and style changes for documents with many citations by avoiding repeated Word content-control scans and redundant navigation rebuilding.

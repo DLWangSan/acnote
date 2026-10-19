@@ -415,7 +415,7 @@ public static class CitationDocument
         {
             var rendered = authorYear
                 ? InTextFormatter.Format(cite.Ids.Select(id => records[id]), style.CitationEtAl, cite.Form == "narrative", years, style.CitationPunctuation)
-                : CitationNumbers.Format(cite.Ids.Select(id => numbers[id]));
+                : CitationNumbers.Format(cite.Ids.Select(id => numbers[id]), style.CitationRangeSeparator);
             renderedCitations[cite.Id] = rendered;
             citationLinks.Add((cite.Id, rendered, BuildCitationLinkSpans(rendered, cite.Ids, authorYear,
                 cite.Form == "narrative", records, numbers, idByNumber, years, style), cite.Control));
@@ -439,6 +439,15 @@ public static class CitationDocument
 
         var lines = new List<string>();
         var bibliographyIds = new List<string>();
+        var inlineFormats = new List<FormattedTextSpan>();
+        var bibliographyTextOffset = 0;
+        void AddBibliographyLine(string id, string prefix, FormattedReference formatted)
+        {
+            lines.Add(prefix + formatted.Text);
+            bibliographyIds.Add(id);
+            inlineFormats.AddRange(formatted.Spans.Select(span => span with { Start = bibliographyTextOffset + prefix.Length + span.Start }));
+            bibliographyTextOffset += prefix.Length + formatted.Text.Length + 1;
+        }
         var numberedList = !authorYear || listOptions.NumberAuthorYear == true;
         var numberSeparator = bibliographyFormat.HangingIndent > 0 ? "\t" : " ";
         if (authorYear)
@@ -447,8 +456,7 @@ public static class CitationDocument
             foreach (var entry in entries)
             {
                 var prefix = numberedList ? $"[{lines.Count + 1}]" + numberSeparator : "";
-                lines.Add(prefix + BibliographyFormatter.Format(entry, style, years.GetValueOrDefault(entry.Id)).Text);
-                bibliographyIds.Add(entry.Id);
+                AddBibliographyLine(entry.Id, prefix, BibliographyFormatter.Format(entry, style, years.GetValueOrDefault(entry.Id)));
             }
         }
         else
@@ -458,9 +466,11 @@ public static class CitationDocument
                 var item = records[id];
                 var body = item is null
                     ? "（库中已无此文献）"
-                    : BibliographyFormatter.Format(item, style).Text;
-                lines.Add($"[{numbers[id]}]" + numberSeparator + body);
-                bibliographyIds.Add(id);
+                    : null;
+                var prefix = $"[{numbers[id]}]" + numberSeparator;
+                AddBibliographyLine(id, prefix, item is null
+                    ? new FormattedReference { Text = body!, Missing = [] }
+                    : BibliographyFormatter.Format(item, style));
             }
         }
 
@@ -503,6 +513,7 @@ public static class CitationDocument
         SetText(bibliography, string.Join("\r", lines));
         progress?.Invoke("正在排版参考文献…", 65);
         ApplyFormat(bibliography.Range, bibliographyFormat, true);
+        ApplyInlineStyles((object)bibliography.Range, inlineFormats);
         if (numberedList && bibliographyFormat.HangingIndent is > 0)
         {
             // A real tab stop aligns first-line text with wrapped lines, instead
@@ -741,6 +752,20 @@ public static class CitationDocument
         }
         foreach (var id in all)
             if (lookup(id) is null) throw new InvalidOperationException("找不到引用文献，未修改文档：" + id);
+    }
+
+    private static void ApplyInlineStyles(object range, IReadOnlyList<FormattedTextSpan> spans)
+    {
+        if (spans.Count == 0) return;
+        dynamic parent = range;
+        var start = (int)parent.Start;
+        foreach (var span in spans)
+        {
+            dynamic formatted = parent.Duplicate;
+            formatted.SetRange(start + span.Start, start + span.Start + span.Length);
+            if (span.Italic) formatted.Font.Italic = true;
+            if (span.Bold) formatted.Font.Bold = true;
+        }
     }
 
     private static void ApplyFormat(dynamic range, TextLayout format, bool paragraph)

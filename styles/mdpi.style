@@ -1,0 +1,112 @@
+{
+  "id": "mdpi",
+  "name": "MDPI",
+  "version": "1.0",
+  "layout": "numeric",
+  "group": "classic",
+  "source": "MDPI author instructions supplied for this style",
+  "notes": "顺序编码，文中方括号、区间使用 en dash、引文保持基线；文末按首次出现顺序编号。DOI 有值时输出 DOI 链接。期刊缩写需在刊名字段中提供；书籍版次、章节编者、学位层级、网页访问日期等可放入扩展字段 edition、editors、thesis-level、accessed。",
+  "etAl": {
+    "minCount": 999,
+    "useFirst": 3,
+    "authorSeparator": "; ",
+    "familyInitialsSeparator": ", ",
+    "initialsSeparator": "",
+    "initialsUsePeriods": true
+  },
+  "citation": {
+    "rangeSeparator": "–",
+    "format": { "superscript": false }
+  },
+  "required": {
+    "article-journal": ["author", "title", "container-title", "year"],
+    "book": ["author", "title", "publisher", "year"],
+    "chapter": ["author", "title", "container-title", "year"],
+    "thesis": ["author", "title", "publisher", "year"],
+    "paper-conference": ["author", "title", "container-title", "year"],
+    "dataset": ["author", "title", "year"],
+    "document": ["title", "url"]
+  },
+  "templates": {
+    "article-journal": [
+      { "field": "author", "suffix": ". " },
+      { "field": "title", "suffix": ". " },
+      { "field": "container-title", "suffix": " ", "italic": true },
+      { "field": "year", "suffix": ", " },
+      { "field": "volume", "suffix": ", ", "bold": true },
+      { "field": "page", "suffix": ". " },
+      { "field": "doi-url" }
+    ],
+    "chapter": [
+      { "field": "author", "suffix": ". " },
+      { "field": "title", "suffix": ". " },
+      { "field": "container-title", "prefix": "In ", "suffix": ", ", "italic": true },
+      { "field": "edition", "suffix": " ed.; " },
+      { "field": "editors", "suffix": ", Eds.; " },
+      { "field": "publisher", "suffix": ": " },
+      { "field": "publisher-place", "suffix": ", " },
+      { "field": "year", "suffix": "; " },
+      { "field": "volume", "prefix": "Volume ", "suffix": ", " },
+      { "field": "page", "prefix": "pp. ", "suffix": ". " },
+      { "field": "doi-url" }
+    ],
+    "book": [
+      { "field": "author", "suffix": ". " },
+      { "field": "title", "suffix": ", ", "italic": true },
+      { "field": "edition", "suffix": " ed.; " },
+      { "field": "publisher", "suffix": ": " },
+      { "field": "publisher-place", "suffix": ", " },
+      { "field": "year", "suffix": "; " },
+      { "field": "volume", "prefix": "Volume ", "suffix": ", " },
+      { "field": "page", "prefix": "pp. ", "suffix": ". " },
+      { "field": "doi-url" }
+    ],
+    "thesis": [
+      { "field": "author", "suffix": ". " },
+      { "field": "title", "suffix": ". " },
+      { "field": "thesis-level", "suffix": ", " },
+      { "field": "publisher", "suffix": ", " },
+      { "field": "publisher-place", "suffix": ", " },
+      { "field": "year", "suffix": ". " },
+      { "field": "doi-url" }
+    ],
+    "paper-conference": [
+      { "field": "author", "suffix": ". " },
+      { "field": "title", "suffix": ". " },
+      { "field": "container-title", "prefix": "In ", "suffix": ", " },
+      { "field": "publisher-place", "suffix": ", " },
+      { "field": "year", "suffix": "; " },
+      { "field": "page", "prefix": "pp. ", "suffix": ". " },
+      { "field": "doi-url" }
+    ],
+    "dataset": [
+      { "field": "author", "suffix": ". " },
+      { "field": "title", "suffix": ". " },
+      { "field": "year", "suffix": ". " },
+      { "literal": "Available online: " },
+      { "field": "url", "suffix": ". " },
+      { "field": "doi-url" }
+    ],
+    "document": [
+      { "field": "title", "suffix": ". " },
+      { "literal": "Available online: " },
+      { "field": "url" },
+      { "field": "accessed", "prefix": " (accessed on ", "suffix": ")." },
+      { "field": "doi-url", "prefix": " " }
+    ],
+    "manuscript": [
+      { "field": "author", "suffix": ". " },
+      { "field": "title", "suffix": ". " },
+      { "field": "container-title", "suffix": " ", "italic": true },
+      { "field": "year", "suffix": ", " },
+      { "field": "publication-status", "italic": true, "suffix": ". " },
+      { "field": "doi-url" }
+    ],
+    "personal-communication": [
+      { "field": "author", "suffix": ". " },
+      { "field": "affiliations", "suffix": ". " },
+      { "literal": "Personal communication, " },
+      { "field": "year", "suffix": "." }
+    ]
+  }
+}

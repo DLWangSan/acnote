@@ -260,8 +260,35 @@ public class BibliographyTests
     public void StyleList_ShowsClassicsThenUniversities()
     {
         var names = StyleCatalog.Load(Path.Combine(AppContext.BaseDirectory, "styles")).All.Select(style => style.Name).ToList();
-        Assert.Equal(["GB/T 7714", "Author-Year"], names.Take(2));
-        Assert.Equal(["中山大学", "北京大学", "清华大学"], names.Skip(2).OrderBy(name => name, StringComparer.Ordinal));
+        Assert.Equal(["GB/T 7714", "MDPI", "Author-Year"], names.Take(3));
+        Assert.Equal(["中山大学", "北京大学", "清华大学"], names.Skip(3).OrderBy(name => name, StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void MdpiStyle_FormatsNumericCitationsDoiAndEmphasis()
+    {
+        var style = StyleCatalog.Load(Path.Combine(AppContext.BaseDirectory, "styles")).Get("mdpi");
+        var item = new ReferenceItem
+        {
+            Id = "mdpi-test",
+            Type = "article-journal",
+            Title = "A sample article",
+            ContainerTitle = "Journal of Tests",
+            Year = "2024",
+            Volume = "12",
+            Page = "1-9",
+            Doi = "https://doi.org/10.1000/test",
+            Authors = [AuthorFormatter.Parse("Smith, John"), AuthorFormatter.Parse("Doe, Alice B")],
+        };
+
+        var formatted = BibliographyFormatter.Format(item, style);
+
+        Assert.Equal("Smith, J.; Doe, A.B. A sample article. Journal of Tests 2024, 12, 1-9. https://doi.org/10.1000/test", formatted.Text);
+        Assert.Contains(formatted.Spans, span => span.Italic && formatted.Text.Substring(span.Start, span.Length) == "Journal of Tests");
+        Assert.Contains(formatted.Spans, span => span.Bold && formatted.Text.Substring(span.Start, span.Length) == "12");
+        Assert.Equal("–", style.CitationRangeSeparator);
+        Assert.False(style.CitationFormat.Superscript);
+        Assert.Equal("[1–3,5]", CitationNumbers.Format([1, 2, 3, 5], style.CitationRangeSeparator));
     }
 
     [Fact]
