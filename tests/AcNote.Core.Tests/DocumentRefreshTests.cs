@@ -417,11 +417,13 @@ public class TestSelection
 }
 public class TestFont
 {
-    public void Reset() { Name = ""; NameFarEast = ""; Size = 0; Superscript = 0; }
+    public void Reset() { Name = ""; NameFarEast = ""; Size = 0; Superscript = 0; Color = 0; Underline = 0; }
     public string Name { get; set; } = "";
     public string NameFarEast { get; set; } = "";
     public float Size { get; set; }
     public int Superscript { get; set; }
+    public int Color { get; set; }
+    public int Underline { get; set; }
 }
 public class TestParagraph
 {
