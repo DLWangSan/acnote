@@ -4,7 +4,7 @@
   "version": "1.0",
   "layout": "numeric",
   "group": "classic",
-  "source": "MDPI author instructions supplied for this style",
+  "source": "https://www.mdpi.com/authors/references",
   "notes": "顺序编码，文中方括号、区间使用 en dash、引文保持基线；文末按首次出现顺序编号。DOI 有值时输出 DOI 链接。期刊缩写需在刊名字段中提供；书籍版次、章节编者、学位层级、网页访问日期等可放入扩展字段 edition、editors、thesis-level、accessed。",
   "etAl": {
     "minCount": 999,
@@ -76,7 +76,7 @@
       { "field": "title", "suffix": ". " },
       { "field": "container-title", "prefix": "In ", "suffix": ", " },
       { "field": "publisher-place", "suffix": ", " },
-      { "field": "year", "suffix": "; " },
+      { "field": "year", "suffix": ". " },
       { "field": "page", "prefix": "pp. ", "suffix": ". " },
       { "field": "doi-url" }
     ],
