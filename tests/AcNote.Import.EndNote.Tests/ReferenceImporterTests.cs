@@ -66,6 +66,21 @@ public sealed class ReferenceImporterTests : IDisposable
     }
 
     [Fact]
+    public void CslJson_PreprintMapsArchiveAndArchiveIdentifierAliases()
+    {
+        var path = Write("preprint.json", """
+            [{"id":"arxiv-1","type":"article-preprint","title":"A preprint","archive":"arXiv","archive-id":"2410.12345","URL":"https://arxiv.org/abs/2410.12345"}]
+            """);
+
+        var item = Assert.Single(ReferenceImporter.Import(path).Items);
+
+        Assert.Equal("preprint", item.Type);
+        Assert.Equal("arXiv", item.ContainerTitle);
+        Assert.Equal("2410.12345", item.Extra["archive-id"]);
+        Assert.Equal("https://arxiv.org/abs/2410.12345", item.Url);
+    }
+
+    [Fact]
     public void LegacyChineseRis_DecodesWithoutReplacementCharacters()
     {
         System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);

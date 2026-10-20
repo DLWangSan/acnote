@@ -323,7 +323,47 @@ public class TestDocument
     public TestControls ContentControls { get; } = new();
     public TestRange Content { get; } = new() { End = 1000 };
     public TestVariables Variables { get; } = new();
+    public TestBookmarks Bookmarks { get; } = new();
+    public TestHyperlinks Hyperlinks { get; } = new();
     public TestRange Range(int start, int end) => new() { Start = start, End = end, Text = "\r" };
+}
+public class TestBookmarks
+{
+    private readonly List<TestBookmark> _items = [];
+    public int Count => _items.Count;
+    public TestBookmark this[int index] => _items[index - 1];
+    public TestBookmark Add(string name, TestRange range)
+    {
+        var bookmark = new TestBookmark(this, name, range);
+        _items.Add(bookmark);
+        return bookmark;
+    }
+    public void Remove(TestBookmark bookmark) => _items.Remove(bookmark);
+}
+public class TestBookmark(TestBookmarks owner, string name, TestRange range)
+{
+    public string Name { get; } = name;
+    public TestRange Range { get; } = range;
+    public void Delete() => owner.Remove(this);
+}
+public class TestHyperlinks
+{
+    private readonly List<TestHyperlink> _items = [];
+    public int Count => _items.Count;
+    public TestHyperlink this[int index] => _items[index - 1];
+    public TestHyperlink Add(TestRange anchor, string address, string subAddress, string screenTip)
+    {
+        var hyperlink = new TestHyperlink(this, anchor, subAddress);
+        _items.Add(hyperlink);
+        return hyperlink;
+    }
+    public void Remove(TestHyperlink hyperlink) => _items.Remove(hyperlink);
+}
+public class TestHyperlink(TestHyperlinks owner, TestRange anchor, string subAddress)
+{
+    public TestRange Range { get; } = anchor;
+    public string SubAddress { get; } = subAddress;
+    public void Delete() => owner.Remove(this);
 }
 public class TestVariables : Dictionary<string, TestVariable>
 {

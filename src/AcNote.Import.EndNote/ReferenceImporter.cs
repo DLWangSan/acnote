@@ -124,7 +124,13 @@ public static class ReferenceImporter
         foreach (var row in root.EnumerateArray())
         {
             if (row.ValueKind != JsonValueKind.Object) { result.Warnings.Add("跳过无效 JSON 记录。"); continue; }
-            string Get(string name) => row.TryGetProperty(name, out var value) && value.ValueKind is JsonValueKind.String or JsonValueKind.Number ? value.ToString() : "";
+            string Get(params string[] names)
+            {
+                foreach (var name in names)
+                    if (row.TryGetProperty(name, out var value) && value.ValueKind is JsonValueKind.String or JsonValueKind.Number)
+                        return value.ToString();
+                return "";
+            }
             if (string.IsNullOrWhiteSpace(Get("title"))) { result.Warnings.Add("JSON 记录没有题名，已跳过。"); continue; }
             var item = new ReferenceItem { Title = Get("title"), Type = TypeOf(Get("type")), SourceKey = Get("id"),
                 ContainerTitle = Get("container-title", "archive"), Volume = Get("volume"), Issue = Get("issue"), Page = Get("page"),
