@@ -28,5 +28,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: AcNote-preview-0.1.18
-          path: artifacts/0.1.18/*
+          path: |
+            artifacts/0.1.18/AcNote-Setup-0.1.18-win-x64.exe
+            artifacts/0.1.18/SHA256SUMS.txt
           if-no-files-found: error
