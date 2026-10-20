@@ -85,6 +85,8 @@ Nine MCP tools are currently available:
 | `create_library` | Create and open a library at an absolute `.acnote` path without overwriting existing files |
 | `open_library` | Open an existing `.acnote` library |
 | `import_references` | Import up to 20 EndNote, BibTeX, RIS, CSL JSON, or Zotero files into the current library |
+| `update_reference` | Correct an existing reference by its stable AcNote ID |
+| `install_style` | Install and activate a local `.style` file |
 | `search_references` | Search by title, author, year, journal, DOI, URL, or source key |
 | `get_references` | Read exact records by stable ID and check fields required by the current style |
 | `get_word_context` | Inspect the active Word selection, nearby text, and AcNote binding |

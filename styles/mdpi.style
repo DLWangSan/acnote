@@ -24,6 +24,7 @@
     "chapter": ["author", "title", "container-title", "year"],
     "thesis": ["author", "title", "publisher", "year"],
     "paper-conference": ["author", "title", "container-title", "year"],
+    "preprint": ["author", "title", "container-title", "year", "archive-id", "url"],
     "dataset": ["author", "title", "year"],
     "document": ["title", "url"]
   },
@@ -77,6 +78,16 @@
       { "field": "publisher-place", "suffix": ", " },
       { "field": "year", "suffix": "; " },
       { "field": "page", "prefix": "pp. ", "suffix": ". " },
+      { "field": "doi-url" }
+    ],
+    "preprint": [
+      { "field": "author", "suffix": ". " },
+      { "field": "title", "suffix": ". " },
+      { "field": "container-title", "suffix": " " },
+      { "field": "year", "suffix": ", " },
+      { "field": "archive-id", "suffix": ". " },
+      { "literal": "Available online: " },
+      { "field": "url", "suffix": ". " },
       { "field": "doi-url" }
     ],
     "dataset": [

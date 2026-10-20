@@ -22,6 +22,8 @@ Use the AcNote MCP tools as the only interface to the user's library and AcNote-
 3. Call `get_references` for the final candidate IDs. Never invent or reconstruct an ID.
 4. Report material missing fields before insertion. Prefer a complete matching record when duplicates exist; ask the user when identity or relevance is genuinely ambiguous.
 
+When the user explicitly asks to correct or enrich library metadata, use `update_reference` with the complete record returned by `get_references`, preserving its stable ID, then read it back to verify the saved fields. Use `install_style` only when the user asks to install or update a style, and verify the active style and preview afterward.
+
 ## Choose the Word location
 
 Call `get_word_context` before inserting.

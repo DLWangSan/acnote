@@ -85,6 +85,8 @@ Author-Year 的文中引用用姓：`(袁隆平, 1966)`、`(Watson and Crick, 19
 | `create_library` | 在绝对路径新建并打开 `.acnote` 文献库；不覆盖已有文件 |
 | `open_library` | 打开已有的 `.acnote` 文献库 |
 | `import_references` | 一次向当前库导入最多 20 个 EndNote、BibTeX、RIS、CSL JSON 或 Zotero 文件 |
+| `update_reference` | 按稳定的 AcNote ID 修正文献记录 |
+| `install_style` | 安装并启用本地 `.style` 版式文件 |
 | `search_references` | 按题名、作者、年份、期刊、DOI、URL 或来源键搜索当前库 |
 | `get_references` | 按稳定 ID 读取准确记录，并按当前版式检查缺项 |
 | `get_word_context` | 查看活动 Word 文档的选择位置、附近正文和 AcNote 绑定信息 |

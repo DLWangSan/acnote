@@ -117,6 +117,7 @@ public static class BibliographyFormatter
             "publisher-place" => item.PublisherPlace,
             "doi" => CleanDoi(item.Doi),
             "doi-url" => string.IsNullOrWhiteSpace(item.Doi) ? "" : "https://doi.org/" + CleanDoi(item.Doi),
+            "archive-id" => ArchiveIdentifier(item),
             "url" => item.Url,
             _ => item.Extra.GetValueOrDefault(field) ?? "",
         };
@@ -124,6 +125,17 @@ public static class BibliographyFormatter
     }
 
     private static string CleanDoi(string value) => Regex.Replace(value.Trim(), @"^(?:https?://(?:dx\.)?doi\.org/|doi:\s*)", "", RegexOptions.IgnoreCase);
+
+    private static string ArchiveIdentifier(ReferenceItem item)
+    {
+        var identifier = item.Extra.GetValueOrDefault("archive-id")?.Trim() ?? "";
+        var archive = item.ContainerTitle.Trim();
+        if (identifier.Length == 0 || archive.Length == 0 || identifier.Contains(':'))
+            return identifier;
+        return archive.Equals("arXiv", StringComparison.OrdinalIgnoreCase)
+            ? $"arXiv:{identifier}"
+            : $"{archive}:{identifier}";
+    }
 
     public static string Tidy(string text)
     {

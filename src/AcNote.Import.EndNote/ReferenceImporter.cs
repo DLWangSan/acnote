@@ -63,6 +63,7 @@ public static class ReferenceImporter
         "book" or "booklet" or "editedbook" => "book",
         "inbook" or "incollection" or "chap" or "booksection" or "chapter" => "chapter",
         "inproceedings" or "conference" or "conf" or "cpaper" or "conferencepaper" or "paper-conference" => "paper-conference",
+        "preprint" or "article-preprint" => "preprint",
         "phdthesis" or "mastersthesis" or "thes" or "thesis" => "thesis",
         "dataset" or "data" => "dataset",
         _ => "document",
@@ -126,7 +127,7 @@ public static class ReferenceImporter
             string Get(string name) => row.TryGetProperty(name, out var value) && value.ValueKind is JsonValueKind.String or JsonValueKind.Number ? value.ToString() : "";
             if (string.IsNullOrWhiteSpace(Get("title"))) { result.Warnings.Add("JSON 记录没有题名，已跳过。"); continue; }
             var item = new ReferenceItem { Title = Get("title"), Type = TypeOf(Get("type")), SourceKey = Get("id"),
-                ContainerTitle = Get("container-title"), Volume = Get("volume"), Issue = Get("issue"), Page = Get("page"),
+                ContainerTitle = Get("container-title", "archive"), Volume = Get("volume"), Issue = Get("issue"), Page = Get("page"),
                 Doi = Get("DOI"), Url = Get("URL"), Publisher = Get("publisher"), PublisherPlace = Get("publisher-place"), Language = Get("language") };
             if (row.TryGetProperty("issued", out var issued) && issued.ValueKind == JsonValueKind.Object)
             {
@@ -143,6 +144,10 @@ public static class ReferenceImporter
                 }
             foreach (var name in new[] { "edition", "ISBN", "ISSN", "abstract" })
                 if (Get(name).Length > 0) item.Extra[name] = Get(name);
+            var archiveId = Get("archive_location", "archive-id");
+            if (archiveId.Length > 0) item.Extra["archive-id"] = archiveId;
+            var archive = Get("archive");
+            if (archive.Length > 0) item.Extra["archive"] = archive;
             result.Items.Add(item);
         }
         return result;

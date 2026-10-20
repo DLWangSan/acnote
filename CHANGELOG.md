@@ -1,5 +1,11 @@
 # 更新记录
 
+## 0.1.18
+
+- Add an MDPI preprint reference type and citation template for archive, year, identifier, and online address.
+- Add controlled MCP operations to update an existing reference by stable ID and install a local style file.
+- Accept CSL preprint archive metadata during import.
+
 ## 0.1.17
 
 - Add an MDPI numeric reference style with appearance-order numbering, bracketed citations, en-dash ranges, DOI links, and journal/volume emphasis.

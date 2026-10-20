@@ -36,6 +36,26 @@ public class StyleEditingTests
     }
 
     [Fact]
+    public void MdpiPreprintUsesArchiveIdAndOnlineAddress()
+    {
+        var style = Catalog().Get("mdpi");
+        var item = new ReferenceItem
+        {
+            Type = "preprint",
+            Authors = [AuthorFormatter.Parse("Khanam, Rahima"), AuthorFormatter.Parse("Hussain, Muhammad")],
+            Title = "YOLOv11: An Overview of the Key Architectural Enhancements",
+            ContainerTitle = "arXiv",
+            Year = "2024",
+            Url = "https://arxiv.org/abs/2410.17725",
+            Extra = new(StringComparer.OrdinalIgnoreCase) { ["archive-id"] = "2410.17725" },
+        };
+
+        Assert.Equal("Khanam, R.; Hussain, M. YOLOv11: An Overview of the Key Architectural Enhancements. arXiv 2024, arXiv:2410.17725. Available online: https://arxiv.org/abs/2410.17725.",
+            BibliographyFormatter.Format(item, style).Text);
+        Assert.Empty(MissingFieldChecker.Check(item, style));
+    }
+
+    [Fact]
     public void OneClickDoiIsIdempotentAndMissingDoiLeavesNoLabel()
     {
         var style = Catalog().Get("author-year");

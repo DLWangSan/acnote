@@ -102,6 +102,8 @@ public sealed class ControlServer : IDisposable
                 "ai-create-library" => OnUi(() => AiCreateLibrary(Text(document.RootElement, "path"))),
                 "ai-open-library" => OnUi(() => AiOpenLibrary(Text(document.RootElement, "path"))),
                 "ai-import-references" => OnUi(() => AiImportReferences(Strings(document.RootElement, "paths"))),
+                "ai-update-reference" => OnUi(() => AiUpdateReference(document.RootElement.GetProperty("reference"))),
+                "ai-install-style" => OnUi(() => AiInstallStyle(Text(document.RootElement, "path"))),
                 "ai-search-references" => OnUi(() => AiSearch(
                     Text(document.RootElement, "query"), Number(document.RootElement, "limit", 10))),
                 "ai-get-references" => OnUi(() => AiGetReferences(Strings(document.RootElement, "ids"))),
@@ -255,6 +257,27 @@ public sealed class ControlServer : IDisposable
             else records.Add(ReferenceResult(item));
         }
         return JsonSerializer.Serialize(new { ok = true, records, missingIds = missing });
+    }
+
+    private string AiUpdateReference(JsonElement value)
+    {
+        var store = RequireStore();
+        var item = JsonSerializer.Deserialize<ReferenceItem>(value.GetRawText(), new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        if (item is null || string.IsNullOrWhiteSpace(item.Id)) return Fail("更新文献必须包含准确的 AcNote 文献 ID。");
+        if (item.Type is not ("article-journal" or "book" or "thesis" or "chapter" or "paper-conference" or "preprint" or "dataset" or "document"))
+            return Fail("文献类型不受支持。");
+        if (store.Find(item.Id) is null) return Fail("该文献 ID 不在当前文献库中。");
+        item.Authors ??= [];
+        item.Extra ??= new(StringComparer.OrdinalIgnoreCase);
+        _window.SaveReferenceFromAi(item);
+        return JsonSerializer.Serialize(new { ok = true, updated = item.Id, record = ReferenceResult(store.Find(item.Id)!) });
+    }
+
+    private string AiInstallStyle(string path)
+    {
+        if (!File.Exists(path)) return Fail("找不到版式文件。");
+        var id = _window.InstallStyleFromAi(path);
+        return JsonSerializer.Serialize(new { ok = true, installed = id, style = new { id, name = _session.CurrentStyle.Name } });
     }
 
     private object ReferenceResult(ReferenceItem item) => new

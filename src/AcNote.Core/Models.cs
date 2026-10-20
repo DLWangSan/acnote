@@ -36,6 +36,7 @@ public static class ReferenceTypes
         ("thesis", "学位论文"),
         ("chapter", "图书章节"),
         ("paper-conference", "会议论文"),
+        ("preprint", "预印本"),
         ("dataset", "数据集"),
         ("document", "其他"),
     ];

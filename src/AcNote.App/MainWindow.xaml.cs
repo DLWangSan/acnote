@@ -214,6 +214,31 @@ public partial class MainWindow : Window
         store.Save(item);
     }
 
+    public void SaveReferenceFromAi(ReferenceItem item)
+    {
+        SaveShown();
+        if (_session.Store is not LibraryStore store)
+            throw new InvalidOperationException("当前没有打开文献库。");
+        var existing = store.Find(item.Id) ?? throw new InvalidOperationException("找不到要更新的文献记录。");
+        item.SourceKey = existing.SourceKey;
+        foreach (var (key, value) in existing.Extra)
+            item.Extra.TryAdd(key, value);
+        store.Save(item);
+        Reload(_shownId == item.Id ? item.Id : _shownId);
+    }
+
+    public string InstallStyleFromAi(string path)
+    {
+        if (!Path.IsPathFullyQualified(path) || !Path.GetExtension(path).Equals(".style", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("版式文件必须是绝对路径的 .style 文件。");
+        var id = StyleCatalog.Install(File.ReadAllText(path), AppPaths.Styles, Path.Combine(AppContext.BaseDirectory, "styles"));
+        _session.ReloadStyles();
+        _session.StyleId = id;
+        FillStyleCombo();
+        Reload(_shownId);
+        return id;
+    }
+
     private ReferenceItem ReadForm() => new()
         {
             Type = CurrentType(),
@@ -254,6 +279,7 @@ public partial class MainWindow : Window
         {
             "book" or "chapter" => "书名",
             "paper-conference" => "会议名称",
+            "preprint" => "预印本平台/来源",
             "thesis" => "来源（可不填）",
             "dataset" => "来源（可不填）",
             _ => "刊名",
