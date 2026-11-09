@@ -17,6 +17,8 @@ public sealed class StyleEditorWindow : Window
     private readonly TextBox _citeFirst;
     private readonly TextBox _citeZh;
     private readonly TextBox _citeEn;
+    private readonly AuthorSeparatorEditor _bibSeparator = new("默认：半角逗号和空格");
+    private readonly AuthorSeparatorEditor _citeSeparator = new("按语言默认（和 / and）");
     private bool _syncing;
     private readonly ResolvedStyle _resolved;
     private readonly LayoutEditor _citationLayout;
@@ -56,8 +58,10 @@ public sealed class StyleEditorWindow : Window
         var rules = new StackPanel { Margin = new Thickness(0, 0, 0, 12) };
         rules.Children.Add(Heading("参考文献里的作者"));
         (_bibMin, _bibFirst, _bibZh, _bibEn) = AddRule(rules);
+        rules.Children.Add(_bibSeparator);
         rules.Children.Add(Heading("文中引用里的作者"));
         (_citeMin, _citeFirst, _citeZh, _citeEn) = AddRule(rules);
+        rules.Children.Add(_citeSeparator);
         DockPanel.SetDock(rules, Dock.Top);
 
         _editor = new TextBox
@@ -79,10 +83,14 @@ public sealed class StyleEditorWindow : Window
         foreach (var box in new[] { _bibMin, _bibFirst, _bibZh, _bibEn, _citeMin, _citeFirst, _citeZh, _citeEn })
             box.TextChanged += (_, _) => WriteRulesIntoJson();
 
+        _bibSeparator.Changed += WriteRulesIntoJson;
+        _citeSeparator.Changed += WriteRulesIntoJson;
         ReadRules(json);
         _syncing = true;
         Fill(_bibMin, _bibFirst, _bibZh, _bibEn, JsonSerializer.SerializeToNode(resolved.EtAl, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }) as JsonObject, 4, 3, ", 等", ", et al.");
         Fill(_citeMin, _citeFirst, _citeZh, _citeEn, JsonSerializer.SerializeToNode(resolved.CitationEtAl, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }) as JsonObject, 3, 1, "等", " et al.");
+        _bibSeparator.Load(resolved.EtAl.AuthorSeparator);
+        _citeSeparator.Load(resolved.CitationEtAl.AuthorSeparator);
         _syncing = false;
         root.Children.Add(buttons);
         var tabs = new TabControl();
@@ -157,6 +165,8 @@ public sealed class StyleEditorWindow : Window
             if (node is null)
                 return;
             _syncing = true;
+            _bibSeparator.Load(ReadSeparator(node["etAl"], _resolved.EtAl.AuthorSeparator));
+            _citeSeparator.Load(ReadSeparator(node["citation"]?["etAl"], _resolved.CitationEtAl.AuthorSeparator));
             Fill(_bibMin, _bibFirst, _bibZh, _bibEn, node["etAl"] as JsonObject, _resolved.EtAl.MinCount, _resolved.EtAl.UseFirst, _resolved.EtAl.Zh ?? "", _resolved.EtAl.En ?? "");
             Fill(_citeMin, _citeFirst, _citeZh, _citeEn, node["citation"]?["etAl"] as JsonObject, _resolved.CitationEtAl.MinCount, _resolved.CitationEtAl.UseFirst, _resolved.CitationEtAl.Zh ?? "", _resolved.CitationEtAl.En ?? "");
         }
@@ -179,12 +189,19 @@ public sealed class StyleEditorWindow : Window
             var node = JsonNode.Parse(_editor.Text) as JsonObject;
             if (node is null)
                 return;
-            node["etAl"] = RuleNode(_bibMin, _bibFirst, _bibZh, _bibEn);
+            node["etAl"] = RuleNode(_bibMin, _bibFirst, _bibZh, _bibEn, _bibSeparator.Value, node["etAl"] as JsonObject);
             var citation = node["citation"] as JsonObject ?? new JsonObject();
-            citation["etAl"] = RuleNode(_citeMin, _citeFirst, _citeZh, _citeEn);
+            citation["etAl"] = RuleNode(_citeMin, _citeFirst, _citeZh, _citeEn, _citeSeparator.Value, citation["etAl"] as JsonObject);
             node["citation"] = citation;
             _syncing = true;
             _editor.Text = node.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+            var previewRule = JsonSerializer.SerializeToNode(_resolved.EtAl)!.AsObject();
+            previewRule["MinCount"] = int.Parse(_bibMin.Text);
+            previewRule["UseFirst"] = int.Parse(_bibFirst.Text);
+            previewRule["Zh"] = _bibZh.Text;
+            previewRule["En"] = _bibEn.Text;
+            previewRule["AuthorSeparator"] = _bibSeparator.Value;
+            _templates.UpdateAuthors(previewRule.Deserialize<EtAlRule>()!);
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException)
         {
@@ -204,6 +221,9 @@ public sealed class StyleEditorWindow : Window
         en.Text = rule?["en"]?.GetValue<string>() ?? defaultEn;
     }
 
+    private static string? ReadSeparator(JsonNode? node, string? fallback) =>
+        node is JsonObject rule && rule.TryGetPropertyValue("authorSeparator", out var value) ? value?.GetValue<string>() : fallback;
+
     private static string ReadInt(JsonObject? rule, string name, int fallback) =>
         rule?[name]?.GetValue<int>().ToString() ?? fallback.ToString();
 
@@ -213,13 +233,17 @@ public sealed class StyleEditorWindow : Window
             throw new InvalidOperationException("作者省略规则：起始人数至少为 2，保留人数至少为 1 且小于起始人数。");
     }
 
-    private static JsonObject RuleNode(TextBox min, TextBox first, TextBox zh, TextBox en) => new()
+    private static JsonObject RuleNode(TextBox min, TextBox first, TextBox zh, TextBox en, string? separator, JsonObject? existing)
     {
-        ["minCount"] = int.TryParse(min.Text.Trim(), out var minCount) ? minCount : 1,
-        ["useFirst"] = int.TryParse(first.Text.Trim(), out var useFirst) ? useFirst : 1,
-        ["zh"] = zh.Text,
-        ["en"] = en.Text,
-    };
+        // Preserve advanced author formatting, including MDPI initials and separators.
+        var rule = existing?.DeepClone().AsObject() ?? new JsonObject();
+        rule["minCount"] = int.TryParse(min.Text.Trim(), out var minCount) ? minCount : 1;
+        rule["useFirst"] = int.TryParse(first.Text.Trim(), out var useFirst) ? useFirst : 1;
+        rule["zh"] = zh.Text;
+        rule["en"] = en.Text;
+        rule["authorSeparator"] = separator;
+        return rule;
+    }
 
     private static TextBlock Heading(string text) => new()
     {

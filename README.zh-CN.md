@@ -159,6 +159,9 @@ flowchart TD
 
 ## 快速开始
 
+主程序顶部的“检查更新”默认连接 [国内更新服务](https://update.ygs.plus/api/v1/apps/acnote/latest?platform=windows)，可直接下载安装包，也可切换 GitHub。安装包已包含所需运行时，无需另行下载运行时文件。
+
+
 1. 从 [GitHub Releases](https://github.com/DLWangSan/acnote/releases) 下载最新的 **Windows x64 安装包**。
 2. 运行安装程序。它会检查 .NET 10 Desktop Runtime，缺少时会提示并引导安装；安装过程中按提示关闭 Word 和 WPS。
 3. 首次启动 AcNote 后，完全退出并重新打开 Word 或 WPS，让插件功能区加载。

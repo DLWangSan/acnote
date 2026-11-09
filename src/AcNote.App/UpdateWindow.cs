@@ -28,12 +28,14 @@ internal sealed class UpdateWindow : Window
         panel.Children.Add(new TextBlock { Text = "更新源（可填写国内镜像的 HTTPS 更新地址）", Margin = new Thickness(0, 16, 0, 4) });
         _source.Text = LoadSource(); panel.Children.Add(_source);
         var buttons = new WrapPanel { Margin = new Thickness(0, 16, 0, 0) };
-        var reset = new Button { Content = "恢复 GitHub" };
+        var reset = new Button { Content = "使用国内更新源" };
         reset.Click += (_, _) => _source.Text = UpdateService.DefaultSource;
+        var github = new Button { Content = "使用 GitHub" };
+        github.Click += (_, _) => _source.Text = UpdateService.GitHubSource;
         _check.Click += async (_, _) => await Check();
         _download.Click += (_, _) => { if (_url is not null) OpenLink(_url); };
         var releases = new Button { Content = "版本发布页" }; releases.Click += (_, _) => OpenLink(UpdateService.ReleasesPage);
-        foreach (var button in new[] { _check, _download, reset, releases }) buttons.Children.Add(button);
+        foreach (var button in new[] { _check, _download, reset, github, releases }) buttons.Children.Add(button);
         panel.Children.Add(buttons); Content = panel;
         Loaded += async (_, _) => await Check(); Closed += (_, _) => _cancel.Cancel();
     }
@@ -47,7 +49,14 @@ internal sealed class UpdateWindow : Window
         foreach (var path in new[] { SettingsPath, Path.Combine(AppContext.BaseDirectory, "updates.json") })
         {
             if (!File.Exists(path)) continue;
-            try { using var json = JsonDocument.Parse(File.ReadAllText(path)); return UpdateService.HttpsUrl(json.RootElement.GetProperty("source").GetString() ?? ""); }
+            try
+            {
+                using var json = JsonDocument.Parse(File.ReadAllText(path));
+                var source = UpdateService.HttpsUrl(json.RootElement.GetProperty("source").GetString() ?? "");
+                // Migrate the old built-in default; keep user-supplied mirrors.
+                return source == UpdateService.GitHubSource && !json.RootElement.TryGetProperty("sourceVersion", out _)
+                    ? UpdateService.DefaultSource : source;
+            }
             catch { /* Fall back to the bundled source or GitHub. */ }
         }
         return UpdateService.DefaultSource;
@@ -61,7 +70,7 @@ internal sealed class UpdateWindow : Window
             var source = UpdateService.HttpsUrl(_source.Text.Trim());
             var release = await UpdateService.CheckAsync(source, _cancel.Token);
             Directory.CreateDirectory(AppPaths.Root);
-            File.WriteAllText(SettingsPath, JsonSerializer.Serialize(new { source }));
+            File.WriteAllText(SettingsPath, JsonSerializer.Serialize(new { source, sourceVersion = 2 }));
             if (release is null) { _status.Text = "尚无已发布的正式安装包。"; return; }
             _notes.Text = release.Notes;
             if (release.Version <= UpdateService.ParseVersion(Current)) { _status.Text = "当前已是最新版本（" + Current + "）。"; return; }

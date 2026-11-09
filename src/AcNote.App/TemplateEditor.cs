@@ -10,7 +10,7 @@ internal sealed class TemplateEditor : DockPanel
 {
     private readonly Dictionary<string, List<StyleToken>> _templates;
     private readonly Dictionary<string, List<StyleToken>> _original;
-    private readonly ResolvedStyle _style;
+    private EtAlRule _authorRule;
     private readonly ComboBox _type = new();
     private readonly ListBox _rows = new();
     private readonly TextBlock _preview = new() { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(12) };
@@ -20,7 +20,7 @@ internal sealed class TemplateEditor : DockPanel
 
     public TemplateEditor(ResolvedStyle style)
     {
-        _style = style;
+        _authorRule = style.EtAl;
         _templates = style.Templates.ToDictionary(p => p.Key, p => TemplateEditing.Copy(p.Value));
         _original = style.Templates.ToDictionary(p => p.Key, p => TemplateEditing.Copy(p.Value));
         Margin = new Thickness(12);
@@ -98,13 +98,15 @@ internal sealed class TemplateEditor : DockPanel
     { var index = Current.IndexOf(token); var target = index + delta; if (target < 0 || target >= Current.Count) return; Current.RemoveAt(index); Current.Insert(target, token); Render(); }
     private void Preview()
     {
-        var style = new ResolvedStyle { EtAl = _style.EtAl };
+        var style = new ResolvedStyle { EtAl = _authorRule };
         style.Templates[TypeId] = Current;
-        var sample = new ReferenceItem { Type = TypeId, Title = "示例研究", Authors = [AuthorFormatter.Parse("张三")], Language = "zh", Year = "2024", ContainerTitle = "示例学报", Volume = "12", Issue = "3", Page = "15-23", Publisher = "示例出版社", PublisherPlace = "北京", Doi = "10.1234/example", Url = "https://example.org/paper" };
+        var sample = new ReferenceItem { Type = TypeId, Title = "示例研究", Authors = [AuthorFormatter.Parse("张三"), AuthorFormatter.Parse("李四"), AuthorFormatter.Parse("王五"), AuthorFormatter.Parse("赵六")], Language = "zh", Year = "2024", ContainerTitle = "示例学报", Volume = "12", Issue = "3", Page = "15-23", Publisher = "示例出版社", PublisherPlace = "北京", Doi = "10.1234/example", Url = "https://example.org/paper" };
         var full = BibliographyFormatter.Format(sample, style).Text;
         sample.Doi = "";
         _preview.Text = "实时预览（示例数据）\n" + full + "\n\n没有 DOI 时\n" + BibliographyFormatter.Format(sample, style).Text;
     }
+    public void UpdateAuthors(EtAlRule rule) { _authorRule = rule; Preview(); }
+
     public JsonNode? Read() => JsonSerializer.SerializeToNode(_templates, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
     public void Load(string json)
     {

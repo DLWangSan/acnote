@@ -8,7 +8,8 @@ public sealed record UpdateRelease(Version Version, string DownloadUrl, string N
 
 public static class UpdateService
 {
-    public const string DefaultSource = "https://api.github.com/repos/DLWangSan/acnote/releases/latest";
+    public const string DefaultSource = "https://update.ygs.plus/api/v1/apps/acnote/latest?platform=windows";
+    public const string GitHubSource = "https://api.github.com/repos/DLWangSan/acnote/releases/latest";
     public const string ReleasesPage = "https://github.com/DLWangSan/acnote/releases";
     public static Version ParseVersion(string text)
     {
@@ -26,6 +27,13 @@ public static class UpdateService
     {
         using var document = JsonDocument.Parse(json);
         var root = document.RootElement;
+        if (root.TryGetProperty("ok", out var ok) && !ok.GetBoolean())
+            throw new InvalidDataException("更新服务器未能返回版本信息。");
+        if (root.TryGetProperty("release", out var release))
+        {
+            if (release.ValueKind == JsonValueKind.Null) return null;
+            root = release;
+        }
         if (root.TryGetProperty("tag_name", out var tag))
         {
             if ((root.TryGetProperty("draft", out var draft) && draft.GetBoolean()) ||
@@ -37,14 +45,14 @@ public static class UpdateService
                 root.TryGetProperty("body", out var body) ? body.GetString() ?? "" : "");
         }
         return new UpdateRelease(ParseVersion(root.GetProperty("version").GetString() ?? ""),
-            HttpsUrl(root.GetProperty("downloadUrl").GetString() ?? ""), root.TryGetProperty("notes", out var notes) ? notes.GetString() ?? "" : "");
+            HttpsUrl((root.TryGetProperty("download_url", out var download) ? download : root.GetProperty("downloadUrl")).GetString() ?? ""), root.TryGetProperty("notes", out var notes) ? notes.GetString() ?? "" : "");
     }
     public static async Task<UpdateRelease?> CheckAsync(string source, CancellationToken cancellationToken = default)
     {
         using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
         client.DefaultRequestHeaders.UserAgent.ParseAdd("AcNote-UpdateCheck/0.1");
         using var response = await client.GetAsync(HttpsUrl(source), HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        if (response.StatusCode == HttpStatusCode.NotFound && source == DefaultSource) return null;
+        if (response.StatusCode == HttpStatusCode.NotFound && (source == DefaultSource || source == GitHubSource)) return null;
         response.EnsureSuccessStatusCode();
         if (response.Content.Headers.ContentLength > 1_048_576) throw new InvalidDataException("更新信息过大。");
         using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);

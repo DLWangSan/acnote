@@ -19,6 +19,8 @@ jobs:
       - name: Install Inno Setup
         shell: powershell
         run: choco install innosetup --no-progress -y
+      - name: Run tests
+        run: dotnet test AcNote.sln --configuration Release
       - name: Build installer and update manifest
         shell: pwsh
         run: |

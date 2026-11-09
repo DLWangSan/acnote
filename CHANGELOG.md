@@ -1,5 +1,11 @@
 # 更新记录
 
+## 0.1.19
+
+- 版式设置支持选择文末和文中作者之间的分隔符，保留已有高级姓名格式，并更新多作者预览。
+- 默认通过 update.ygs.plus 检查更新和下载安装包，同时保留 GitHub 更新源。
+- 支持 Release Hub 更新响应，并提供从环境变量读取发布密钥的上传脚本。
+
 ## 0.1.18
 
 - Add an MDPI preprint reference type and citation template for archive, year, identifier, and online address.

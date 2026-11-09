@@ -161,6 +161,9 @@ People formatting a thesis or a paper against a specific style, especially when 
 
 ## Quick Start
 
+The desktop **Check for updates** button uses the [Release Hub mirror](https://update.ygs.plus/api/v1/apps/acnote/latest?platform=windows) by default, with GitHub available as an alternative. The setup package includes the required runtimes.
+
+
 1. Download the latest **Windows x64 installer** from [GitHub Releases](https://github.com/DLWangSan/acnote/releases).
 2. Run the installer. It checks for the .NET 10 Desktop Runtime and guides you through installing it if needed. Close Word and WPS when the installer asks.
 3. Launch AcNote once, then fully close and reopen Word or WPS so its AcNote ribbon can load.

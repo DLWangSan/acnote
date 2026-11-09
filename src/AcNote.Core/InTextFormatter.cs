@@ -72,14 +72,16 @@ public static class InTextFormatter
         var chinese = LanguageDetector.Resolve(item) == "zh";
         var truncate = authors.Count >= rule.MinCount && rule.UseFirst > 0 && rule.UseFirst < authors.Count;
         if (!truncate)
-            return JoinNames(authors, chinese);
+            return JoinNames(authors, chinese, rule.AuthorSeparator);
 
         var suffix = chinese ? rule.Zh ?? "等" : rule.En ?? " et al.";
-        return JoinNames(authors.Take(rule.UseFirst).ToList(), chinese) + suffix;
+        return JoinNames(authors.Take(rule.UseFirst).ToList(), chinese, rule.AuthorSeparator) + suffix;
     }
 
-    private static string JoinNames(IReadOnlyList<string> names, bool chinese)
+    private static string JoinNames(IReadOnlyList<string> names, bool chinese, string? separator)
     {
+        if (separator is not null)
+            return string.Join(separator, names);
         if (names.Count == 0)
             return "";
         if (names.Count == 1)
