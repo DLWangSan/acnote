@@ -159,6 +159,8 @@ flowchart TD
 
 People formatting a thesis or a paper against a specific style, especially when the bibliography mixes Chinese and English. It is not a PDF reader, and it is not trying to cover search, recommendations, or annotation.
 
+**Manage styles** in the sidebar creates copies, imports, edits, renames, and deletes custom styles. Bundled styles are read-only; edits are saved under a new custom name. Renaming preserves the style ID. Legacy overrides are preserved as independent custom copies.
+
 ## Quick Start
 
 The desktop **Check for updates** button uses the [Release Hub mirror](https://update.ygs.plus/api/v1/apps/acnote/latest?platform=windows) by default, with GitHub available as an alternative. The setup package includes the required runtimes.

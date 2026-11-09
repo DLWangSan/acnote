@@ -180,6 +180,8 @@ public sealed class StyleCatalog
         var id = style.Id;
         if (string.IsNullOrWhiteSpace(id) || id is "." or ".." || id.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
             throw new InvalidOperationException("版式 id 不是有效的文件名。");
+        if (baseDirectories.Length > 0 && Load(baseDirectories).All.Any(s => s.Id.Equals(id, StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException("内置版式不能覆盖，请另存为新的自定义版式。");
         var temp = Directory.CreateTempSubdirectory("acnote-style-check-");
         try
         {

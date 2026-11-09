@@ -608,7 +608,7 @@ public sealed class Connect : IDTExtensibility2, IRibbonExtensibility
         return Path.Combine(directory, "styles");
     }
 
-    private static StyleCatalog Catalog() => StyleCatalog.Load(BundledStyles(), AppPaths.Styles);
+    private static StyleCatalog Catalog() => new StyleLibrary(BundledStyles(), AppPaths.Styles).Load();
 
     private static Func<string, ReferenceItem?> LookupFor(object document)
     {

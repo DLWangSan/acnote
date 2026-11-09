@@ -67,7 +67,7 @@ public partial class App : Application
         try
         {
             AppPaths.EnsureStyles(Path.Combine(AppContext.BaseDirectory, "styles"));
-            var catalog = StyleCatalog.Load(Path.Combine(AppContext.BaseDirectory, "styles"), AppPaths.Styles);
+            var catalog = new StyleLibrary(Path.Combine(AppContext.BaseDirectory, "styles"), AppPaths.Styles).Load();
             LibraryStore? store = null;
             var libraryPath = WorkspaceSettings.LibraryPath;
             if (!string.IsNullOrWhiteSpace(libraryPath) && File.Exists(libraryPath))

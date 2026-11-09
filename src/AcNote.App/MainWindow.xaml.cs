@@ -231,7 +231,7 @@ public partial class MainWindow : Window
     {
         if (!Path.IsPathFullyQualified(path) || !Path.GetExtension(path).Equals(".style", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("版式文件必须是绝对路径的 .style 文件。");
-        var id = StyleCatalog.Install(File.ReadAllText(path), AppPaths.Styles, Path.Combine(AppContext.BaseDirectory, "styles"));
+        var id = StyleFiles.Import(File.ReadAllText(path));
         _session.ReloadStyles();
         _session.StyleId = id;
         FillStyleCombo();
@@ -442,37 +442,36 @@ public partial class MainWindow : Window
 
     public void EditCurrentStyle() => EditStyle_Click(this, new RoutedEventArgs());
 
+    private StyleLibrary StyleFiles => new(Path.Combine(AppContext.BaseDirectory, "styles"), AppPaths.Styles);
+
     private void EditStyle_Click(object sender, RoutedEventArgs e)
     {
-        var style = _session.CurrentStyle;
-        var json = style.FilePath is not null && File.Exists(style.FilePath)
-            ? File.ReadAllText(style.FilePath)
-            : "";
-        var editor = new StyleEditorWindow(json, style) { Owner = this };
-        if (editor.ShowDialog() != true)
-            return;
-
         try
         {
-            using var document = System.Text.Json.JsonDocument.Parse(editor.JsonText);
-            var id = document.RootElement.GetProperty("id").GetString();
-            if (string.IsNullOrWhiteSpace(id) || id.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
-            {
-                MessageBox.Show("版式 id 不能包含文件名里不允许的字符。", "AcNote");
-                return;
-            }
+            var id = StyleManagementWindow.Edit(this, StyleFiles, _session.CurrentStyle);
+            if (id is null) return;
+            RefreshStyles(id);
+        }
+        catch (Exception ex) { MessageBox.Show(this, ex.Message, "AcNote"); }
+    }
 
-            Directory.CreateDirectory(AppPaths.Styles);
-            StyleCatalog.Install(editor.JsonText, AppPaths.Styles, Path.Combine(AppContext.BaseDirectory, "styles"));
-            _session.ReloadStyles();
-            _session.StyleId = id;
-            FillStyleCombo();
-            Reload(_shownId);
-        }
-        catch (Exception ex)
+    private void ManageStyles_Click(object sender, RoutedEventArgs e)
+    {
+        try
         {
-            MessageBox.Show(ex.Message, "AcNote");
+            var manager = new StyleManagementWindow(StyleFiles, _session.StyleId) { Owner = this };
+            manager.ShowDialog();
+            RefreshStyles(manager.SelectedStyleId);
         }
+        catch (Exception ex) { MessageBox.Show(this, ex.Message, "AcNote"); }
+    }
+
+    private void RefreshStyles(string? id)
+    {
+        _session.ReloadStyles();
+        _session.StyleId = _session.Catalog.Get(id).Id;
+        FillStyleCombo();
+        Reload(_shownId);
     }
 
     private void UpdateLibraryTitle()
@@ -667,7 +666,7 @@ public partial class MainWindow : Window
 
         try
         {
-            var id = StyleCatalog.Install(File.ReadAllText(dialog.FileName), AppPaths.Styles, Path.Combine(AppContext.BaseDirectory, "styles"));
+            var id = StyleFiles.Import(File.ReadAllText(dialog.FileName));
             _session.ReloadStyles();
             if (!string.IsNullOrWhiteSpace(id))
                 _session.StyleId = id;

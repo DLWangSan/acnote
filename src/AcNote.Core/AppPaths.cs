@@ -16,20 +16,6 @@ public static class AppPaths
     public static void EnsureStyles(string bundledDirectory)
     {
         Directory.CreateDirectory(Styles);
-        if (!Directory.Exists(bundledDirectory))
-            return;
-
-        foreach (var file in Directory.EnumerateFiles(bundledDirectory, "*.style"))
-        {
-            var destination = Path.Combine(Styles, Path.GetFileName(file));
-            if (!File.Exists(destination))
-                File.Copy(file, destination);
-            else if (IsLegacySchoolPlaceholder(File.ReadAllText(destination)))
-            {
-                File.Copy(destination, destination + ".legacy.bak", overwrite: true);
-                File.Copy(file, destination, overwrite: true);
-            }
-        }
     }
 
     public static bool IsLegacySchoolPlaceholder(string json)

@@ -29,5 +29,5 @@ public sealed class Session
     }
 
     public void ReloadStyles() =>
-        Catalog = StyleCatalog.Load(Path.Combine(AppContext.BaseDirectory, "styles"), AppPaths.Styles);
+        Catalog = new StyleLibrary(Path.Combine(AppContext.BaseDirectory, "styles"), AppPaths.Styles).Load();
 }
