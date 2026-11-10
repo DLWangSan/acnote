@@ -174,6 +174,14 @@ The desktop **Check for updates** button uses the [Release Hub mirror](https://u
 
 AcNote currently requires 64-bit Windows. If the ribbon does not appear, use **Check/repair Word and WPS add-in** in AcNote, then restart the word processor.
 
+## Community
+
+Join the AcNote QQ group: **1127285199** to discuss usage, feature ideas, and citation styles.
+
+<a href="images/QQgroup.jpg"><img src="images/QQgroup.jpg" alt="AcNote QQ group QR code, group number 1127285199" width="280" /></a>
+
+Click the image to view it at full size, or search for the group number in QQ.
+
 ## Contributing
 
 Pick any item that sounds useful:

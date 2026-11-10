@@ -172,6 +172,14 @@ flowchart TD
 
 AcNote 目前要求 64 位 Windows。如果功能区没有出现，可在 AcNote 中使用“检查/修复 Word、WPS 插件”，然后重启文字处理程序。
 
+## 交流群
+
+QQ群：**1127285199**。欢迎交流使用问题、功能建议和版式经验。
+
+<a href="images/QQgroup.jpg"><img src="images/QQgroup.jpg" alt="AcNote QQ 交流群二维码，群号 1127285199" width="280" /></a>
+
+点击图片可查看原图，也可以在 QQ 中搜索群号加入。
+
 ## 参与
 
 欢迎挑选下面任何一项参与：
