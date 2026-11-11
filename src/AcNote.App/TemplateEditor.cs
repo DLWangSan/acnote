@@ -12,6 +12,7 @@ internal sealed class TemplateEditor : DockPanel
     private readonly Dictionary<string, List<StyleToken>> _original;
     private EtAlRule _authorRule;
     private readonly ComboBox _type = new();
+    private readonly ComboBox _language = new() { ItemsSource = new[] { "中文标点", "英文标点" }, SelectedIndex = 0, Width = 140, HorizontalAlignment = HorizontalAlignment.Left };
     private readonly ListBox _rows = new();
     private readonly TextBlock _preview = new() { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(12) };
     private readonly CheckBox _all = new() { Content = "DOI / URL 应用于所有文献类型", Margin = new Thickness(8), VerticalAlignment = VerticalAlignment.Center };
@@ -33,6 +34,8 @@ internal sealed class TemplateEditor : DockPanel
         var types = new ComboBox { ItemsSource = ReferenceTypes.All.Select(t => new TypeChoice(t.Id, t.Label)).Concat(_templates.Keys.Where(k => !ReferenceTypes.All.Any(t => t.Id == k)).Select(k => new TypeChoice(k, k))).ToList(), MinWidth = 170, HorizontalAlignment = HorizontalAlignment.Left };
         types.SelectionChanged += (_, _) => { _type.SelectedItem = ((TypeChoice)types.SelectedItem).Id; Render(); };
         top.Children.Add(types);
+        _language.SelectionChanged += (_, _) => Render();
+        top.Children.Add(_language);
         var actions = new WrapPanel { Margin = new Thickness(0, 8, 0, 8) };
         actions.Children.Add(Button("＋ DOI", () => Add("doi")));
         actions.Children.Add(Button("＋ DOI 链接", () => Add("doi-url")));
@@ -70,6 +73,7 @@ internal sealed class TemplateEditor : DockPanel
     private void Render()
     {
         _rows.Items.Clear();
+        var chinese = _language.SelectedIndex == 0;
         foreach (var token in Current.ToList())
         {
             var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 3, 0, 3) };
@@ -80,7 +84,13 @@ internal sealed class TemplateEditor : DockPanel
             field.SelectionChanged += (_, _) => { var id = ((TypeChoice)field.SelectedItem).Id; token.Field = id == "literal" ? null : id; token.Literal = id == "literal" ? token.Literal ?? "." : null; Render(); };
             row.Children.Add(field);
             if (token.Field is null) row.Children.Add(Edit(token.Literal, value => token.Literal = value, 246));
-            else { row.Children.Add(Edit(token.Prefix, value => token.Prefix = value, 120)); row.Children.Add(Edit(token.Suffix, value => token.Suffix = value, 120)); }
+            else
+            {
+                row.Children.Add(Edit((chinese ? token.PrefixZh : token.PrefixEn) ?? token.Prefix,
+                    value => { if (chinese) token.PrefixZh = value; else token.PrefixEn = value; }, 120));
+                row.Children.Add(Edit((chinese ? token.SuffixZh : token.SuffixEn) ?? token.Suffix,
+                    value => { if (chinese) token.SuffixZh = value; else token.SuffixEn = value; }, 120));
+            }
             row.Children.Add(Button("↑", () => Move(token, -1)));
             row.Children.Add(Button("↓", () => Move(token, 1)));
             row.Children.Add(Button("移除", () => { Current.Remove(token); Render(); }));

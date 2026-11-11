@@ -440,7 +440,9 @@ public static class CitationDocument
         var lines = new List<string>();
         var bibliographyIds = new List<string>();
         var inlineFormats = new List<FormattedTextSpan>();
-        var bibliographyTextOffset = 0;
+        var heading = style.BibliographyHeading?.Trim() ?? "";
+        var headingOffset = heading.Length == 0 ? 0 : heading.Length + 1;
+        var bibliographyTextOffset = headingOffset;
         void AddBibliographyLine(string id, string prefix, FormattedReference formatted)
         {
             lines.Add(prefix + formatted.Text);
@@ -474,13 +476,14 @@ public static class CitationDocument
             }
         }
 
+        var bibliographyText = (headingOffset == 0 ? "" : heading + "\r") + string.Join("\r", lines);
         var bibliographyIdSet = bibliographyIds.ToHashSet(StringComparer.Ordinal);
         var refreshSignature = RefreshSignature(style, typography,
             cites.Select(cite => (cite.Form, cite.Ids)).ToList(), bibliographyIds);
         if (bibliography is not null
             && HasRefreshSignature(wordDocument, refreshSignature)
             && cites.All(cite => string.Equals(cite.Text, renderedCitations.GetValueOrDefault(cite.Id), StringComparison.Ordinal))
-            && string.Equals(currentBibliographyText, string.Join("\r", lines), StringComparison.Ordinal)
+            && string.Equals(currentBibliographyText, bibliographyText, StringComparison.Ordinal)
             && HasExpectedNavigation(wordDocument, bibliographyIds.Count,
                 citationLinks.Sum(citation => citation.Spans.Count(span => bibliographyIdSet.Contains(span.ReferenceId)))))
         {
@@ -510,7 +513,7 @@ public static class CitationDocument
         EnsureBibliographyParagraph(wordDocument, bibliography);
         RemoveReferenceHyperlinks(wordDocument);
         RemoveReferenceBookmarks(wordDocument);
-        SetText(bibliography, string.Join("\r", lines));
+        SetText(bibliography, bibliographyText);
         progress?.Invoke("正在排版参考文献…", 65);
         ApplyFormat(bibliography.Range, bibliographyFormat, true);
         ApplyInlineStyles((object)bibliography.Range, inlineFormats);
@@ -522,8 +525,14 @@ public static class CitationDocument
             tabs.ClearAll();
             tabs.Add((float)bibliographyFormat.HangingIndent.Value, 0, 0);
         }
-        RememberText(wordDocument, (string)bibliography.ID, string.Join("\r", lines));
-        Dictionary<string, string> bookmarks = CreateReferenceBookmarks((object)wordDocument, (object)bibliography, bibliographyIds, lines, progress);
+        if (headingOffset > 0)
+        {
+            var headingStart = (int)bibliography.Range.Start;
+            dynamic headingRange = wordDocument.Range(headingStart, headingStart + headingOffset);
+            ApplyFormat(headingRange, style.BibliographyHeadingFormat, true);
+        }
+        RememberText(wordDocument, (string)bibliography.ID, bibliographyText);
+        Dictionary<string, string> bookmarks = CreateReferenceBookmarks((object)wordDocument, (object)bibliography, bibliographyIds, lines, progress, headingOffset);
         var linkIndex = 0;
         var expectedLinks = citationLinks.Sum(citation => citation.Spans.Count(span => bookmarks.ContainsKey(span.ReferenceId)));
         foreach (var citation in citationLinks)
@@ -625,11 +634,11 @@ public static class CitationDocument
         dynamic bibliography,
         IReadOnlyList<string> ids,
         IReadOnlyList<string> lines,
-        Action<string, int>? progress = null)
+        Action<string, int>? progress = null, int contentOffset = 0)
     {
         var result = new Dictionary<string, string>(StringComparer.Ordinal);
         var offset = 0;
-        var start = (int)bibliography.Range.Start;
+        var start = (int)bibliography.Range.Start + contentOffset;
         for (var index = 0; index < Math.Min(ids.Count, lines.Count); index++)
         {
             var line = lines[index];
@@ -778,6 +787,7 @@ public static class CitationDocument
         if (!string.IsNullOrWhiteSpace(format.EastAsiaFontFamily)) range.Font.NameFarEast = format.EastAsiaFontFamily;
         if (format.FontSize is double size) range.Font.Size = (float)size;
         range.Font.Superscript = format.Superscript == true ? -1 : 0;
+        if (format.Bold is bool bold) range.Font.Bold = bold ? -1 : 0;
         if (!paragraph) return;
         dynamic p = range.ParagraphFormat;
         p.Reset();
@@ -785,6 +795,8 @@ public static class CitationDocument
         if (format.LineSpacingPoints is double points) { p.LineSpacingRule = 4; p.LineSpacing = (float)points; }
         if (format.SpaceBefore is double before) p.SpaceBefore = (float)before;
         if (format.SpaceAfter is double after) p.SpaceAfter = (float)after;
+        if (format.SpaceAfterLines is double afterLines) p.LineUnitAfter = (float)afterLines;
+        if (format.PageBreakBefore is bool pageBreak) p.PageBreakBefore = pageBreak ? -1 : 0;
         if (format.HangingIndent is double indent) { p.LeftIndent = (float)indent; p.FirstLineIndent = (float)-indent; }
         if (format.Alignment is string alignment) p.Alignment = alignment switch { "center" => 1, "right" => 2, "justify" => 3, _ => 0 };
     }

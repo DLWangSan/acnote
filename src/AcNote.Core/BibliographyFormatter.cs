@@ -57,6 +57,7 @@ public static class BibliographyFormatter
             : style.Templates.GetValueOrDefault("document") ?? [];
 
         var builder = new StringBuilder();
+        var chinese = LanguageDetector.Resolve(item) == "zh";
         var spans = new List<FormattedTextSpan>();
         foreach (var token in tokens)
         {
@@ -73,10 +74,11 @@ public static class BibliographyFormatter
             if (string.IsNullOrEmpty(value))
                 continue;
 
-            builder.Append(token.Prefix);
+            if (!chinese && token.TextCaseEn is string casing) value = EnglishCase(value, casing);
+            builder.Append((chinese ? token.PrefixZh : token.PrefixEn) ?? token.Prefix);
             var valueStart = builder.Length;
             builder.Append(value);
-            builder.Append(token.Suffix);
+            builder.Append((chinese ? token.SuffixZh : token.SuffixEn) ?? token.Suffix);
             if (token.Italic == true || token.Bold == true)
                 spans.Add(new(valueStart, value.Length, token.Italic == true, token.Bold == true));
         }
@@ -107,6 +109,15 @@ public static class BibliographyFormatter
         var value = field switch
         {
             "author" => AuthorFormatter.FormatList(item, style.EtAl),
+            "author-or-editor" => item.Authors.Count > 0 ? AuthorFormatter.FormatList(item, style.EtAl) : item.Extra.GetValueOrDefault("editors") ?? "",
+            "translator" => item.Extra.GetValueOrDefault("translator") ?? item.Extra.GetValueOrDefault("translators") ?? "",
+            "editors" => item.Extra.GetValueOrDefault("editors") ?? item.Extra.GetValueOrDefault("editor") ?? "",
+            "standard-number" => item.Extra.GetValueOrDefault("standard-number") ?? item.Extra.GetValueOrDefault("number") ?? "",
+            "patent-number" => item.Extra.GetValueOrDefault("patent-number") ?? item.Extra.GetValueOrDefault("number") ?? "",
+            "report-number" => item.Extra.GetValueOrDefault("report-number") ?? item.Extra.GetValueOrDefault("number") ?? "",
+            "publication-date" => item.Extra.GetValueOrDefault("publication-date") ?? item.Extra.GetValueOrDefault("date") ?? "",
+            "updated" => item.Extra.GetValueOrDefault("updated") ?? item.Extra.GetValueOrDefault("publication-date") ?? "",
+            "accessed" => item.Extra.GetValueOrDefault("accessed") ?? item.Extra.GetValueOrDefault("access-date") ?? "",
             "title" => item.Title,
             "container-title" => item.ContainerTitle,
             "year" => item.Year,
@@ -125,6 +136,26 @@ public static class BibliographyFormatter
     }
 
     private static string CleanDoi(string value) => Regex.Replace(value.Trim(), @"^(?:https?://(?:dx\.)?doi\.org/|doi:\s*)", "", RegexOptions.IgnoreCase);
+
+    private static string EnglishCase(string text, string casing)
+    {
+        if (casing is not ("sentence" or "title")) return text;
+        var minor = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "a", "an", "the", "and", "or", "but", "for", "nor", "as", "at", "by", "in", "of", "on", "per", "to", "via", "with" };
+        var first = true;
+        return Regex.Replace(text, @"[A-Za-z]+(?:['’][A-Za-z]+)?", match =>
+        {
+            var word = match.Value;
+            // Preserve supplied acronyms and internal capitals in technical names.
+            var acronym = word.Length > 1 && word.All(char.IsUpper);
+            var internalCapital = word.Skip(1).Any(char.IsUpper);
+            var lower = word.ToLowerInvariant();
+            var result = acronym || internalCapital ? word :
+                casing == "title" && !first && minor.Contains(lower) ? lower :
+                first || casing == "title" ? char.ToUpperInvariant(lower[0]) + lower[1..] : lower;
+            first = false;
+            return result;
+        });
+    }
 
     private static string ArchiveIdentifier(ReferenceItem item)
     {

@@ -39,9 +39,11 @@ public static class EndNoteImporter
         ["Book Section"] = "chapter",
         ["Thesis"] = "thesis",
         ["Conference Paper"] = "paper-conference",
-        ["Conference Proceedings"] = "paper-conference",
-        ["Report"] = "document",
-        ["Web Page"] = "document",
+        ["Conference Proceedings"] = "proceedings",
+        ["Report"] = "report",
+        ["Web Page"] = "webpage",
+        ["Patent"] = "patent",
+        ["Standard"] = "standard",
     };
 
     public static ImportResult Import(string path)

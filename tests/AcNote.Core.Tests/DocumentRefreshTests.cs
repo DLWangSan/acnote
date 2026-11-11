@@ -424,6 +424,7 @@ public class TestFont
     public int Superscript { get; set; }
     public int Color { get; set; }
     public int Underline { get; set; }
+    public int Bold { get; set; }
 }
 public class TestParagraph
 {
@@ -433,6 +434,8 @@ public class TestParagraph
     public float LineSpacing { get; set; }
     public float SpaceBefore { get; set; }
     public float SpaceAfter { get; set; }
+    public float LineUnitAfter { get; set; }
+    public int PageBreakBefore { get; set; }
     public float LeftIndent { get; set; }
     public float FirstLineIndent { get; set; }
     public int Alignment { get; set; }

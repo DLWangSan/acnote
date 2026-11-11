@@ -33,11 +33,17 @@ public static class ReferenceTypes
     [
         ("article-journal", "期刊论文"),
         ("book", "图书"),
+        ("translated-book", "译著"),
+        ("proceedings", "会议论文集"),
         ("thesis", "学位论文"),
         ("chapter", "图书章节"),
         ("paper-conference", "会议论文"),
         ("preprint", "预印本"),
         ("dataset", "数据集"),
+        ("patent", "专利"),
+        ("standard", "技术标准"),
+        ("report", "技术报告"),
+        ("webpage", "在线文献"),
         ("document", "其他"),
     ];
 

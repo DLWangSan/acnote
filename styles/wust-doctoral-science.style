@@ -1,0 +1,561 @@
+{
+  "id": "wust-doctoral-science",
+  "name": "武汉科技大学博士论文（理工类）",
+  "version": "1.0",
+  "layout": "numeric",
+  "group": "university",
+  "status": "source-reviewed",
+  "source": "用户提供《附件5-1 博士 论文编排式样（理工类）.doc》，参考文献章节（文件第15页）",
+  "notes": "依据用户提供的博士理工类模板参考文献章节。中文全角逗号、冒号和期号括号；英文半角；句点、方括号和页码连字符保持半角，析出分隔符为∥。列表宋体/Times New Roman 12pt、1.25倍行距。版式自动管理“参考文献”标题，避免再手工重复输入。译者、编号、编者、日期在补充著录信息填写。英文刊名须为全称；已发表文献不得用预印本代替。正文上标是AcNote默认，原模板未明确。详见docs/styles/wust-doctoral-science.md。",
+  "etAl": {
+    "minCount": 4,
+    "useFirst": 3,
+    "zh": "，等",
+    "en": ", et al.",
+    "authorSeparatorZh": "，",
+    "authorSeparatorEn": ", ",
+    "familyInitialsSeparator": " ",
+    "initialsSeparator": " ",
+    "initialsUsePeriods": false
+  },
+  "citation": {
+    "rangeSeparator": "-",
+    "format": {
+      "superscript": true,
+      "fontFamily": "Times New Roman",
+      "eastAsiaFontFamily": "宋体",
+      "fontSize": 12
+    }
+  },
+  "bibliographyHeading": "参考文献",
+  "bibliographyHeadingFormat": {
+    "fontFamily": "Times New Roman",
+    "eastAsiaFontFamily": "黑体",
+    "fontSize": 18,
+    "bold": true,
+    "superscript": false,
+    "alignment": "center",
+    "hangingIndent": 0,
+    "lineSpacing": 1.25,
+    "spaceBefore": 0,
+    "spaceAfter": 0,
+    "spaceAfterLines": 1,
+    "pageBreakBefore": true
+  },
+  "bibliographyFormat": {
+    "fontFamily": "Times New Roman",
+    "eastAsiaFontFamily": "宋体",
+    "fontSize": 12,
+    "bold": false,
+    "superscript": false,
+    "alignment": "justify",
+    "lineSpacing": 1.25,
+    "hangingIndent": 21,
+    "spaceBefore": 0,
+    "spaceAfter": 0,
+    "pageBreakBefore": false
+  },
+  "required": {
+    "article-journal": [
+      "author",
+      "title",
+      "container-title",
+      "year",
+      "volume",
+      "issue",
+      "page"
+    ],
+    "book": [
+      "author",
+      "title",
+      "publisher-place",
+      "publisher",
+      "year"
+    ],
+    "translated-book": [
+      "author",
+      "title",
+      "translator",
+      "publisher-place",
+      "publisher",
+      "year"
+    ],
+    "proceedings": [
+      "author-or-editor",
+      "title",
+      "publisher-place",
+      "publisher",
+      "year"
+    ],
+    "chapter": [
+      "author",
+      "title",
+      "editors",
+      "container-title",
+      "publisher-place",
+      "publisher",
+      "year",
+      "page"
+    ],
+    "paper-conference": [
+      "author",
+      "title",
+      "editors",
+      "container-title",
+      "publisher-place",
+      "publisher",
+      "year",
+      "page"
+    ],
+    "thesis": [
+      "author",
+      "title",
+      "publisher-place",
+      "publisher",
+      "year"
+    ],
+    "patent": [
+      "author",
+      "title",
+      "country",
+      "patent-number",
+      "publication-date"
+    ],
+    "standard": [
+      "standard-number",
+      "title"
+    ],
+    "report": [
+      "author",
+      "title",
+      "publisher-place",
+      "publisher",
+      "year"
+    ],
+    "webpage": [
+      "author",
+      "title",
+      "updated",
+      "accessed",
+      "url"
+    ],
+    "document": [
+      "author",
+      "title",
+      "year"
+    ],
+    "preprint": [
+      "author",
+      "title",
+      "year",
+      "url",
+      "formal-version-check"
+    ]
+  },
+  "templates": {
+    "article-journal": [
+      {
+        "field": "author",
+        "suffix": ". "
+      },
+      {
+        "field": "title",
+        "suffix": "[J]. ",
+        "textCaseEn": "sentence",
+        "suffixZh": "[J]."
+      },
+      {
+        "field": "container-title",
+        "suffix": ". ",
+        "textCaseEn": "title",
+        "suffixZh": "，"
+      },
+      {
+        "field": "year"
+      },
+      {
+        "field": "volume",
+        "prefix": ", ",
+        "prefixZh": "，"
+      },
+      {
+        "field": "issue",
+        "prefix": "(",
+        "suffix": ")",
+        "prefixZh": "（",
+        "suffixZh": "）"
+      },
+      {
+        "field": "page",
+        "prefix": ": ",
+        "prefixZh": "："
+      },
+      {
+        "literal": "."
+      }
+    ],
+    "book": [
+      {
+        "field": "author",
+        "suffix": ". "
+      },
+      {
+        "field": "title",
+        "suffix": "[M]. ",
+        "textCaseEn": "sentence"
+      },
+      {
+        "field": "translator",
+        "suffix": ", trans. ",
+        "suffixZh": "，译. "
+      },
+      {
+        "field": "publisher-place",
+        "suffix": ": ",
+        "suffixZh": "："
+      },
+      {
+        "field": "publisher"
+      },
+      {
+        "field": "year",
+        "prefix": ", ",
+        "prefixZh": "，"
+      },
+      {
+        "field": "page",
+        "prefix": ": ",
+        "prefixZh": "："
+      },
+      {
+        "literal": "."
+      }
+    ],
+    "translated-book": [
+      {
+        "field": "author",
+        "suffix": ". "
+      },
+      {
+        "field": "title",
+        "suffix": "[M]. ",
+        "textCaseEn": "sentence"
+      },
+      {
+        "field": "translator",
+        "suffix": ", trans. ",
+        "suffixZh": "，译. "
+      },
+      {
+        "field": "publisher-place",
+        "suffix": ": ",
+        "suffixZh": "："
+      },
+      {
+        "field": "publisher"
+      },
+      {
+        "field": "year",
+        "prefix": ", ",
+        "prefixZh": "，"
+      },
+      {
+        "field": "page",
+        "prefix": ": ",
+        "prefixZh": "："
+      },
+      {
+        "literal": "."
+      }
+    ],
+    "proceedings": [
+      {
+        "field": "author-or-editor",
+        "suffix": ". "
+      },
+      {
+        "field": "title",
+        "suffix": "[C]. ",
+        "textCaseEn": "sentence"
+      },
+      {
+        "field": "publisher-place",
+        "suffix": ": ",
+        "suffixZh": "："
+      },
+      {
+        "field": "publisher"
+      },
+      {
+        "field": "year",
+        "prefix": ", ",
+        "prefixZh": "，"
+      },
+      {
+        "field": "page",
+        "prefix": ": ",
+        "prefixZh": "："
+      },
+      {
+        "literal": "."
+      }
+    ],
+    "chapter": [
+      {
+        "field": "author",
+        "suffix": ". "
+      },
+      {
+        "field": "title",
+        "suffix": "[C]∥",
+        "textCaseEn": "sentence"
+      },
+      {
+        "field": "editors",
+        "suffix": ". "
+      },
+      {
+        "field": "container-title",
+        "suffix": ". ",
+        "textCaseEn": "title"
+      },
+      {
+        "field": "publisher-place",
+        "suffix": ": ",
+        "suffixZh": "："
+      },
+      {
+        "field": "publisher"
+      },
+      {
+        "field": "year",
+        "prefix": ", ",
+        "prefixZh": "，"
+      },
+      {
+        "field": "page",
+        "prefix": ": ",
+        "prefixZh": "："
+      },
+      {
+        "literal": "."
+      }
+    ],
+    "paper-conference": [
+      {
+        "field": "author",
+        "suffix": ". "
+      },
+      {
+        "field": "title",
+        "suffix": "[C]∥",
+        "textCaseEn": "sentence"
+      },
+      {
+        "field": "editors",
+        "suffix": ". "
+      },
+      {
+        "field": "container-title",
+        "suffix": ". ",
+        "textCaseEn": "title"
+      },
+      {
+        "field": "publisher-place",
+        "suffix": ": ",
+        "suffixZh": "："
+      },
+      {
+        "field": "publisher"
+      },
+      {
+        "field": "year",
+        "prefix": ", ",
+        "prefixZh": "，"
+      },
+      {
+        "field": "page",
+        "prefix": ": ",
+        "prefixZh": "："
+      },
+      {
+        "literal": "."
+      }
+    ],
+    "thesis": [
+      {
+        "field": "author",
+        "suffix": ". "
+      },
+      {
+        "field": "title",
+        "suffix": "[D]. ",
+        "textCaseEn": "sentence"
+      },
+      {
+        "field": "publisher-place",
+        "suffix": ": ",
+        "suffixZh": "："
+      },
+      {
+        "field": "publisher"
+      },
+      {
+        "field": "year",
+        "prefix": ", ",
+        "prefixZh": "，"
+      },
+      {
+        "literal": "."
+      }
+    ],
+    "patent": [
+      {
+        "field": "author",
+        "suffix": ". "
+      },
+      {
+        "field": "title",
+        "textCaseEn": "sentence"
+      },
+      {
+        "field": "country",
+        "prefix": ": ",
+        "prefixZh": "："
+      },
+      {
+        "field": "patent-number",
+        "prefix": ", ",
+        "suffix": "[P]. ",
+        "prefixZh": "，"
+      },
+      {
+        "field": "publication-date"
+      },
+      {
+        "literal": "."
+      }
+    ],
+    "standard": [
+      {
+        "field": "standard-number",
+        "suffix": ", ",
+        "suffixZh": "，"
+      },
+      {
+        "field": "title",
+        "suffix": "[S].",
+        "textCaseEn": "sentence"
+      }
+    ],
+    "report": [
+      {
+        "field": "author",
+        "suffix": ". "
+      },
+      {
+        "field": "title",
+        "suffix": "[R]. ",
+        "textCaseEn": "sentence"
+      },
+      {
+        "field": "report-number",
+        "suffix": ", ",
+        "suffixZh": "，"
+      },
+      {
+        "field": "publisher-place",
+        "suffix": ": ",
+        "suffixZh": "："
+      },
+      {
+        "field": "publisher"
+      },
+      {
+        "field": "year",
+        "prefix": ", ",
+        "prefixZh": "，"
+      },
+      {
+        "literal": "."
+      }
+    ],
+    "webpage": [
+      {
+        "field": "author",
+        "suffix": ". "
+      },
+      {
+        "field": "title",
+        "suffix": "[EB/OL].",
+        "textCaseEn": "sentence"
+      },
+      {
+        "field": "updated",
+        "prefix": "(",
+        "suffix": ")",
+        "prefixZh": "（",
+        "suffixZh": "）"
+      },
+      {
+        "field": "accessed",
+        "prefix": "[",
+        "suffix": "]. "
+      },
+      {
+        "field": "url"
+      },
+      {
+        "literal": "."
+      }
+    ],
+    "document": [
+      {
+        "field": "author",
+        "suffix": ". "
+      },
+      {
+        "field": "title",
+        "suffix": "[Z]. ",
+        "textCaseEn": "sentence"
+      },
+      {
+        "field": "container-title",
+        "suffix": ". "
+      },
+      {
+        "field": "year",
+        "prefix": ", ",
+        "prefixZh": "，"
+      },
+      {
+        "literal": "."
+      }
+    ],
+    "preprint": [
+      {
+        "field": "author",
+        "suffix": ". "
+      },
+      {
+        "field": "title",
+        "suffix": ". ",
+        "textCaseEn": "sentence"
+      },
+      {
+        "field": "container-title",
+        "suffix": " "
+      },
+      {
+        "field": "year",
+        "suffix": ". "
+      },
+      {
+        "field": "url"
+      },
+      {
+        "literal": "."
+      }
+    ]
+  }
+}

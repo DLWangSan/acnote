@@ -261,7 +261,7 @@ public class BibliographyTests
     {
         var names = StyleCatalog.Load(Path.Combine(AppContext.BaseDirectory, "styles")).All.Select(style => style.Name).ToList();
         Assert.Equal(["GB/T 7714", "MDPI", "Author-Year"], names.Take(3));
-        Assert.Equal(["中山大学", "北京大学", "清华大学"], names.Skip(3).OrderBy(name => name, StringComparer.Ordinal));
+        Assert.Equal(["中山大学", "北京大学", "武汉科技大学博士论文（理工类）", "清华大学"], names.Skip(3).OrderBy(name => name, StringComparer.Ordinal));
     }
 
     [Fact]

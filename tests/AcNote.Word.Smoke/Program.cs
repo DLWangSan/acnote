@@ -89,6 +89,29 @@ internal static class Program
                 (Func<string, ReferenceItem?>)(id => many.GetValueOrDefault(id)));
             Check(((string)doc.Content.Text).Contains("[1-12]"), "Twelve selected references can be inserted together", (string)doc.Content.Text);
             Check(CitationDocument.ReadTag((string)doc.ContentControls[1].Tag).Ids.Count == 12, "All record IDs survive Word tag storage", (string)doc.ContentControls[1].Tag);
+            doc.Close(0);
+            doc = app.Documents.Add();
+            doc.Content.Text = "武科大版式测试正文。";
+            var school = styles.Get("wust-doctoral-science");
+            var schoolItem = new ReferenceItem { Id = "wust-one", Type = "article-journal", Language = "zh", Title = "支持向量机算法优化铝碳材料工艺参数", Authors = AuthorFormatter.ParseList("金胜利\n李亚伟\n秦洪奎\n其他作者"), ContainerTitle = "武汉科技大学学报：自然科学版", Year = "2006", Volume = "29", Issue = "1", Page = "10-13" };
+            app.Selection.SetRange((int)doc.Content.End - 1, (int)doc.Content.End - 1);
+            Func<string, ReferenceItem?> schoolLookup = _ => schoolItem;
+            CitationDocument.InsertAndRefresh(doc, app.Selection, new[] { schoolItem.Id }, "parenthetical", school, schoolLookup);
+            dynamic schoolBib = doc.SelectContentControlsByTag(CitationDocument.BibliographyTag)[1];
+            var schoolText = (string)schoolBib.Range.Text;
+            Check(schoolText.StartsWith("参考文献\r[1]\t金胜利，李亚伟，秦洪奎，等."), "WUST heading and Chinese punctuation", schoolText);
+            dynamic headingRange = doc.Range((int)schoolBib.Range.Start, (int)schoolBib.Range.Start + 4);
+            Check((float)headingRange.Font.Size == 18 && (int)headingRange.Font.Bold != 0, "WUST heading typography", schoolText);
+            dynamic schoolTarget = doc.Bookmarks[(string)doc.Hyperlinks[1].SubAddress].Range;
+            Check(((string)schoolTarget.Text).StartsWith("[1]"), "WUST jump skips heading", (string)schoolTarget.Text);
+            Check((float)schoolTarget.Font.Size == 12 && (int)schoolTarget.ParagraphFormat.LineSpacingRule == 5 && Math.Abs((float)schoolTarget.ParagraphFormat.LineSpacing - 15) < 0.1f, "WUST bibliography 12pt and 1.25 line spacing", schoolText);
+            CitationDocument.Refresh(doc, school, schoolLookup);
+            Check((string)schoolBib.Range.Text == schoolText, "WUST refresh is idempotent", schoolText);
+            doc.SaveAs2(Path.Combine(AppContext.BaseDirectory, "WUST-style-check.docx"));
+            doc.ExportAsFixedFormat(Path.Combine(AppContext.BaseDirectory, "WUST-style-check.pdf"), 17);
+            CitationDocument.Refresh(doc, numeric, schoolLookup);
+            Check(!((string)schoolBib.Range.Text).Contains("参考文献"), "Switching style removes managed heading", (string)schoolBib.Range.Text);
+
 
         }
         finally

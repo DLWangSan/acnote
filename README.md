@@ -121,13 +121,15 @@ A library is an `.acnote` file. **新建文献库** creates one, **打开文献�
 
 Missing fields are listed in that library, from the active style and the reference type. The Word document omits empty fields and does not print placeholders.
 
-A style is a JSON file with a `.style` extension. One style can `extend` another and override only the rules that differ. **编辑版式** opens the current file; saving writes it to `%AppData%\AcNote\styles`, and that copy replaces the built-in style with the same `id`. **导入版式** installs a file the same way.
+A style is a JSON file with a `.style` extension and may inherit a base style. Bundled styles are read-only: edits and imports create named custom copies in `%AppData%\AcNote\styles`. Manage custom styles from the sidebar.
 
-The style list shows two classics, then university names:
+Classic styles appear first, followed by university styles:
 
-- `GB/T 7714` — numeric
-- `Author-Year` — author-year, extending GB/T 7714
-- `中山大学`, `北京大学`, `清华大学` — unverified templates extending GB/T 7714; not validated university specifications
+- `GB/T 7714` — numeric.
+- `MDPI` — numeric, including preprints.
+- `Author-Year` — author-year.
+- `中山大学`, `北京大学`, `清华大学` — based on the graduate-thesis sources recorded in each style file.
+- `武汉科技大学博士论文（理工类）` — based on the supplied WUST doctoral science/engineering template, with language-specific punctuation and multiple reference types. See the [verification notes](docs/styles/wust-doctoral-science.md).
 
 ```json
 {

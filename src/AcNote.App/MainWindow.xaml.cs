@@ -14,6 +14,7 @@ public partial class MainWindow : Window
     private readonly Session _session;
     private readonly ObservableCollection<ReferenceRow> _rows = [];
     private readonly ObservableCollection<string> _missing = [];
+    private readonly ExtraReferenceFields _extraFields = new();
     private bool _loading;
     private string? _shownId;
     private string _filterMode = "all";
@@ -26,6 +27,8 @@ public partial class MainWindow : Window
     {
         _session = session;
         InitializeComponent();
+        ExtraFieldsHost.Children.Add(_extraFields);
+        _extraFields.Changed += UpdatePreview;
         ReferenceList.ItemsSource = _rows;
         MissingList.ItemsSource = _missing;
         TypeCombo.ItemsSource = ReferenceTypes.All.Select(item => new TypeChoice(item.Id, item.Label)).ToList();
@@ -171,6 +174,7 @@ public partial class MainWindow : Window
         PublisherBox.Text = item.Publisher;
         DoiBox.Text = item.Doi;
         UrlBox.Text = item.Url;
+        _extraFields.Load(item.Extra);
         UpdateLabels();
         _loading = false;
         UpdatePreview();
@@ -192,6 +196,8 @@ public partial class MainWindow : Window
         PublisherBox.Clear();
         DoiBox.Clear();
         UrlBox.Clear();
+        _extraFields.Load(new Dictionary<string, string>());
+        _extraFields.Configure(CurrentType(), _session.CurrentStyle);
         PreviewBox.Clear();
         _missing.Clear();
         CompleteText.Visibility = Visibility.Collapsed;
@@ -209,7 +215,7 @@ public partial class MainWindow : Window
         if (existing is not null)
         {
             item.SourceKey = existing.SourceKey;
-            item.Extra = existing.Extra;
+            foreach (var pair in existing.Extra) item.Extra.TryAdd(pair.Key, pair.Value);
         }
         store.Save(item);
     }
@@ -254,6 +260,7 @@ public partial class MainWindow : Window
             Publisher = PublisherBox.Text.Trim(),
             Doi = DoiBox.Text.Trim(),
             Url = UrlBox.Text.Trim(),
+            Extra = _extraFields.Read(),
         };
 
     private void UpdatePreview()
@@ -275,9 +282,11 @@ public partial class MainWindow : Window
     private void UpdateLabels()
     {
         var type = CurrentType();
+        _extraFields.Configure(type, _session.CurrentStyle);
         ContainerLabel.Text = type switch
         {
-            "book" or "chapter" => "书名",
+            "book" or "translated-book" or "chapter" => "书名",
+            "proceedings" => "会议名称（可不填）",
             "paper-conference" => "会议名称",
             "preprint" => "预印本平台/来源",
             "thesis" => "来源（可不填）",

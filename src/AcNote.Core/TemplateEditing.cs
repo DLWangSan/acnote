@@ -3,7 +3,9 @@ namespace AcNote.Core;
 public static class TemplateEditing
 {
     public static List<StyleToken> Copy(IEnumerable<StyleToken> tokens) => tokens.Select(t => new StyleToken
-    { Field = t.Field, Literal = t.Literal, Prefix = t.Prefix, Suffix = t.Suffix }).ToList();
+    { Field = t.Field, Literal = t.Literal, Prefix = t.Prefix, Suffix = t.Suffix,
+      PrefixZh = t.PrefixZh, SuffixZh = t.SuffixZh, PrefixEn = t.PrefixEn, SuffixEn = t.SuffixEn,
+      TextCaseEn = t.TextCaseEn, Italic = t.Italic, Bold = t.Bold }).ToList();
 
     public static void AddField(List<StyleToken> tokens, string field, bool doiLink = false)
     {

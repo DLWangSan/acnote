@@ -162,6 +162,7 @@
                     <TextBox x:Name="DoiBox" TextChanged="Field_Changed"/>
                     <TextBlock Text="网址" Foreground="#69788A"/>
                     <TextBox x:Name="UrlBox" TextChanged="Field_Changed"/>
+                    <StackPanel x:Name="ExtraFieldsHost"/>
                     <TextBlock Text="著录预览" FontWeight="SemiBold" Margin="0,8,0,8"/>
                     <TextBox x:Name="PreviewBox" IsReadOnly="True" TextWrapping="Wrap" MinHeight="72" Background="White"/>
                     <TextBlock Text="当前版式缺项" FontWeight="SemiBold" Margin="0,4,0,8"/>

@@ -6,6 +6,9 @@ public sealed class TextLayout
     public string? EastAsiaFontFamily { get; set; }
     public double? FontSize { get; set; }
     public bool? Superscript { get; set; }
+    public bool? Bold { get; set; }
+    public bool? PageBreakBefore { get; set; }
+    public double? SpaceAfterLines { get; set; }
     public double? LineSpacing { get; set; }
     public double? LineSpacingPoints { get; set; }
     public double? SpaceBefore { get; set; }
@@ -19,6 +22,9 @@ public sealed class TextLayout
         EastAsiaFontFamily = other.EastAsiaFontFamily ?? EastAsiaFontFamily;
         FontSize = other.FontSize ?? FontSize;
         Superscript = other.Superscript ?? Superscript;
+        Bold = other.Bold ?? Bold;
+        PageBreakBefore = other.PageBreakBefore ?? PageBreakBefore;
+        SpaceAfterLines = other.SpaceAfterLines ?? SpaceAfterLines;
         if (other.LineSpacing is not null) { LineSpacing = other.LineSpacing; LineSpacingPoints = null; }
         if (other.LineSpacingPoints is not null) { LineSpacingPoints = other.LineSpacingPoints; LineSpacing = null; }
         SpaceBefore = other.SpaceBefore ?? SpaceBefore;
@@ -38,6 +44,8 @@ public sealed class TextLayout
         foreach (var value in new[] { SpaceBefore, SpaceAfter, HangingIndent })
             if (value is double number && (!double.IsFinite(number) || number < 0 || number > 144))
                 throw new InvalidOperationException("段落间距和悬挂缩进必须为 0–144 磅。");
+        if (SpaceAfterLines is double lines && (!double.IsFinite(lines) || lines < 0 || lines > 10))
+            throw new InvalidOperationException("段后行数必须为 0–10。");
         if (Alignment is not null && Alignment is not ("left" or "justify" or "center" or "right"))
             throw new InvalidOperationException("不支持的段落对齐方式。");
     }

@@ -9,6 +9,11 @@ public sealed class StyleToken
     public string? Literal { get; set; }
     public string? Prefix { get; set; }
     public string? Suffix { get; set; }
+    public string? PrefixZh { get; set; }
+    public string? SuffixZh { get; set; }
+    public string? PrefixEn { get; set; }
+    public string? SuffixEn { get; set; }
+    public string? TextCaseEn { get; set; }
     public bool? Italic { get; set; }
     public bool? Bold { get; set; }
 }
@@ -72,6 +77,8 @@ public sealed class StyleFile
     public EtAlRule? EtAl { get; set; }
     public CitationStyle? Citation { get; set; }
     public TextLayout? BibliographyFormat { get; set; }
+    public string? BibliographyHeading { get; set; }
+    public TextLayout? BibliographyHeadingFormat { get; set; }
     public BibliographyOptions? BibliographyOptions { get; set; }
     public Dictionary<string, List<StyleToken>>? Templates { get; set; }
     public Dictionary<string, List<string>>? Required { get; set; }
@@ -97,6 +104,8 @@ public sealed class ResolvedStyle
 
     public TextLayout CitationFormat { get; } = new();
     public TextLayout BibliographyFormat { get; } = new();
+    public string? BibliographyHeading { get; set; }
+    public TextLayout BibliographyHeadingFormat { get; } = new();
     public BibliographyOptions BibliographyOptions { get; } = new();
     public string DisplayName => Status switch { "unverified" => Name + "（待校验）", "source-reviewed" => Name + "（研究生·依据官方指南）", _ => Name };
 }
@@ -245,6 +254,8 @@ public sealed class StyleCatalog
             if (part.Citation?.Format is not null) result.CitationFormat.Merge(part.Citation.Format);
             if (part.Citation?.Punctuation is not null) result.CitationPunctuation.Merge(part.Citation.Punctuation);
             if (part.BibliographyFormat is not null) result.BibliographyFormat.Merge(part.BibliographyFormat);
+            if (part.BibliographyHeading is not null) result.BibliographyHeading = part.BibliographyHeading;
+            if (part.BibliographyHeadingFormat is not null) result.BibliographyHeadingFormat.Merge(part.BibliographyHeadingFormat);
             if (part.BibliographyOptions is not null) result.BibliographyOptions.Merge(part.BibliographyOptions);
             if (part.Templates is not null)
             {

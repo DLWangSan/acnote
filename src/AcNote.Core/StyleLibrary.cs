@@ -82,6 +82,8 @@ public sealed class StyleLibrary(string bundled, string user)
         ["etAl"] = JsonSerializer.SerializeToNode(style.EtAl, Options),
         ["citation"] = JsonSerializer.SerializeToNode(new CitationStyle { EtAl = style.CitationEtAl, Format = style.CitationFormat, Punctuation = style.CitationPunctuation, RangeSeparator = style.CitationRangeSeparator }, Options),
         ["bibliographyFormat"] = JsonSerializer.SerializeToNode(style.BibliographyFormat, Options),
+        ["bibliographyHeading"] = style.BibliographyHeading,
+        ["bibliographyHeadingFormat"] = JsonSerializer.SerializeToNode(style.BibliographyHeadingFormat, Options),
         ["bibliographyOptions"] = JsonSerializer.SerializeToNode(style.BibliographyOptions, Options),
         ["templates"] = JsonSerializer.SerializeToNode(style.Templates, Options),
         ["required"] = JsonSerializer.SerializeToNode(style.Required, Options),
