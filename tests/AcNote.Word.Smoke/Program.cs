@@ -109,6 +109,11 @@ internal static class Program
             Check((string)schoolBib.Range.Text == schoolText, "WUST refresh is idempotent", schoolText);
             doc.SaveAs2(Path.Combine(AppContext.BaseDirectory, "WUST-style-check.docx"));
             doc.ExportAsFixedFormat(Path.Combine(AppContext.BaseDirectory, "WUST-style-check.pdf"), 17);
+            schoolItem.Language = "en";
+            schoolItem.Title = @"Impact of \textlessspan style=""font-variant:small-caps;""\textgreaterM\textless/span\textgreatern on Fe20Cr6Mn6CN alloys";
+            CitationDocument.Refresh(doc, school, schoolLookup);
+            var repairedText = (string)schoolBib.Range.Text;
+            Check(!repairedText.Contains("textless") && !repairedText.Contains("font-variant") && repairedText.Contains("Mn on Fe20Cr6Mn6CN alloys"), "Existing formatted metadata refreshes as clean scientific text", repairedText);
             CitationDocument.Refresh(doc, numeric, schoolLookup);
             Check(!((string)schoolBib.Range.Text).Contains("参考文献"), "Switching style removes managed heading", (string)schoolBib.Range.Text);
 

@@ -30,6 +30,8 @@ public static class ReferenceImporter
         var index = 0;
         foreach (var item in result.Items)
         {
+            item.Title = ReferenceText.Plain(item.Title);
+            item.ContainerTitle = ReferenceText.Plain(item.ContainerTitle);
             index++;
             var key = item.SourceKey;
             if (string.IsNullOrWhiteSpace(key))

@@ -695,6 +695,10 @@ public partial class MainWindow : Window
         if (IsLoaded) Reload(_shownId);
     }
 
+    private void SelectAllReferences_Click(object sender, RoutedEventArgs e) => ReferenceList.SelectAll();
+
+    private void DeselectAllReferences_Click(object sender, RoutedEventArgs e) => ReferenceList.UnselectAll();
+
     private void UpdateSelectionPreview()
     {
         if (SelectionText is null) return;

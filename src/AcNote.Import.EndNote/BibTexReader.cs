@@ -146,6 +146,7 @@ internal sealed class BibTexReader(string text)
     }
     private static string Clean(string text)
     {
+        text = ReferenceText.Plain(text);
         text = Regex.Replace(text, @"\\(['""`^~=.uvHck])\s*\{?([A-Za-z])\}?", m =>
         {
             var accent = m.Groups[1].Value switch { "'" => "\u0301", "\"" => "\u0308", "`" => "\u0300", "^" => "\u0302", "~" => "\u0303", "=" => "\u0304", "." => "\u0307", "u" => "\u0306", "v" => "\u030c", "H" => "\u030b", "c" => "\u0327", _ => "\u0328" };

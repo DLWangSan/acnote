@@ -69,6 +69,10 @@
      <DockPanel Margin="18,16,14,12">
       <TextBlock DockPanel.Dock="Top" Text="搜索题名、作者或刊名" Foreground="#718096" Margin="0,0,0,6"/>
       <TextBox x:Name="FilterBox" DockPanel.Dock="Top" ToolTip="搜索题名、作者或刊名" TextChanged="FilterBox_TextChanged"/>
+      <WrapPanel DockPanel.Dock="Top" Margin="0,6,0,8">
+       <Button Content="全选" Click="SelectAllReferences_Click" ToolTip="选中当前筛选显示的全部文献"/>
+       <Button Content="取消全选" Click="DeselectAllReferences_Click" ToolTip="取消当前文献列表的全部选择"/>
+      </WrapPanel>
       <TextBlock x:Name="SelectionText" DockPanel.Dock="Bottom" Text="选择文献" Foreground="#718096" Margin="0,12,0,0"/>
       <DataGrid x:Name="ReferenceList" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended" SelectionUnit="FullRow" CanUserAddRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#EEF2F6" BorderThickness="0" Background="White" RowHeight="48" SelectionChanged="ReferenceList_SelectionChanged" PreviewMouseLeftButtonDown="ReferenceList_PreviewMouseLeftButtonDown">
        <DataGrid.Resources><Style x:Key="TableText" TargetType="TextBlock"><Setter Property="VerticalAlignment" Value="Center"/><Setter Property="TextTrimming" Value="CharacterEllipsis"/><Setter Property="Margin" Value="6,0"/></Style></DataGrid.Resources>

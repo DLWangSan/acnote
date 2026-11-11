@@ -11,6 +11,22 @@ public sealed class ReferenceImporterTests : IDisposable
     public void Dispose() { SqliteConnection.ClearAllPools(); Directory.Delete(_directory, true); }
 
     [Fact]
+    public void BibTex_RemovesEscapedHtmlSmallCapsWithoutDroppingElementsOrAccents()
+    {
+        var path = Write("formatting.bib", """
+            @article{one,
+              title={Impact of \textlessspan style="font-variant:small-caps;"\textgreaterM\textless/span\textgreatern on austenitic Fe--Mn alloys},
+              author={Garc{\'i}a, Ana and Panzenb{\"o}ck, Martin},
+              journal={Journal of <i>Computational</i> Chemistry}, year={2014}}
+            """);
+        var item = Assert.Single(ReferenceImporter.Import(path).Items);
+        Assert.Equal("Impact of Mn on austenitic Fe--Mn alloys", item.Title);
+        Assert.Equal("Journal of Computational Chemistry", item.ContainerTitle);
+        Assert.Equal("García", item.Authors[0].Family);
+        Assert.Equal("Panzenböck", item.Authors[1].Family);
+    }
+
+    [Fact]
     public void BibTex_PreservesNestedTextAuthorsMacrosAndCrossref()
     {
         var path = Write("test.bib", """

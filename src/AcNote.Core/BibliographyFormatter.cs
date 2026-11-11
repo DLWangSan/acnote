@@ -132,7 +132,7 @@ public static class BibliographyFormatter
             "url" => item.Url,
             _ => item.Extra.GetValueOrDefault(field) ?? "",
         };
-        return value?.Trim() ?? "";
+        return (field is "url" or "doi" or "doi-url" ? value : ReferenceText.Plain(value ?? ""))?.Trim() ?? "";
     }
 
     private static string CleanDoi(string value) => Regex.Replace(value.Trim(), @"^(?:https?://(?:dx\.)?doi\.org/|doi:\s*)", "", RegexOptions.IgnoreCase);
@@ -142,14 +142,15 @@ public static class BibliographyFormatter
         if (casing is not ("sentence" or "title")) return text;
         var minor = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "a", "an", "the", "and", "or", "but", "for", "nor", "as", "at", "by", "in", "of", "on", "per", "to", "via", "with" };
         var first = true;
-        return Regex.Replace(text, @"[A-Za-z]+(?:['’][A-Za-z]+)?", match =>
+        return Regex.Replace(text, @"[A-Za-z0-9]*[A-Za-z][A-Za-z0-9]*(?:['’][A-Za-z]+)?", match =>
         {
             var word = match.Value;
             // Preserve supplied acronyms and internal capitals in technical names.
             var acronym = word.Length > 1 && word.All(char.IsUpper);
             var internalCapital = word.Skip(1).Any(char.IsUpper);
+            var scientific = word.Any(char.IsDigit) || word is "Fe" or "Mn" or "Cr" or "Ni" or "Cu" or "Al" or "Ti" or "Zn" or "Mg" or "Si" or "Mo" or "Nb" or "Zr" or "C" or "N" or "H" or "O" or "P" or "K" or "S" or "V" or "W" or "Y" or "F" or "U" or "B";
             var lower = word.ToLowerInvariant();
-            var result = acronym || internalCapital ? word :
+            var result = acronym || internalCapital || scientific ? word :
                 casing == "title" && !first && minor.Contains(lower) ? lower :
                 first || casing == "title" ? char.ToUpperInvariant(lower[0]) + lower[1..] : lower;
             first = false;
