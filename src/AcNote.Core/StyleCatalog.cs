@@ -20,6 +20,11 @@ public sealed class EtAlRule
     public string? Zh { get; set; }
     public string? En { get; set; }
     public string? AuthorSeparator { get; set; }
+    public string? AuthorSeparatorZh { get; set; }
+    public string? AuthorSeparatorEn { get; set; }
+
+    public string? SeparatorFor(string language) =>
+        (language == "zh" ? AuthorSeparatorZh : AuthorSeparatorEn) ?? AuthorSeparator;
     public string? FamilyInitialsSeparator { get; set; }
     public string? InitialsSeparator { get; set; }
     public bool? InitialsUsePeriods { get; set; }
@@ -296,6 +301,8 @@ public sealed class StyleCatalog
             target.En = incoming.En;
         if (incoming.AuthorSeparator is not null)
             target.AuthorSeparator = incoming.AuthorSeparator;
+        if (incoming.AuthorSeparatorZh is not null) target.AuthorSeparatorZh = incoming.AuthorSeparatorZh;
+        if (incoming.AuthorSeparatorEn is not null) target.AuthorSeparatorEn = incoming.AuthorSeparatorEn;
         if (incoming.FamilyInitialsSeparator is not null)
             target.FamilyInitialsSeparator = incoming.FamilyInitialsSeparator;
         if (incoming.InitialsSeparator is not null)

@@ -35,7 +35,7 @@ public static class AuthorFormatter
 
         var truncate = authors.Count >= rule.MinCount && rule.UseFirst > 0 && rule.UseFirst < authors.Count;
         var take = truncate ? rule.UseFirst : authors.Count;
-        var text = string.Join(rule.AuthorSeparator ?? ", ", authors.Take(take).Select(author => FormatOne(author, rule)));
+        var text = string.Join(rule.SeparatorFor(LanguageDetector.Resolve(item)) ?? ", ", authors.Take(take).Select(author => FormatOne(author, rule)));
         if (!truncate)
             return text;
 

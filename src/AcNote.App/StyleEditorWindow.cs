@@ -89,8 +89,8 @@ public sealed class StyleEditorWindow : Window
         _syncing = true;
         Fill(_bibMin, _bibFirst, _bibZh, _bibEn, JsonSerializer.SerializeToNode(resolved.EtAl, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }) as JsonObject, 4, 3, ", 等", ", et al.");
         Fill(_citeMin, _citeFirst, _citeZh, _citeEn, JsonSerializer.SerializeToNode(resolved.CitationEtAl, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }) as JsonObject, 3, 1, "等", " et al.");
-        _bibSeparator.Load(resolved.EtAl.AuthorSeparator);
-        _citeSeparator.Load(resolved.CitationEtAl.AuthorSeparator);
+        _bibSeparator.Load(resolved.EtAl.AuthorSeparatorZh, resolved.EtAl.AuthorSeparatorEn, resolved.EtAl.AuthorSeparator);
+        _citeSeparator.Load(resolved.CitationEtAl.AuthorSeparatorZh, resolved.CitationEtAl.AuthorSeparatorEn, resolved.CitationEtAl.AuthorSeparator);
         _syncing = false;
         root.Children.Add(buttons);
         var tabs = new TabControl();
@@ -165,8 +165,8 @@ public sealed class StyleEditorWindow : Window
             if (node is null)
                 return;
             _syncing = true;
-            _bibSeparator.Load(ReadSeparator(node["etAl"], _resolved.EtAl.AuthorSeparator));
-            _citeSeparator.Load(ReadSeparator(node["citation"]?["etAl"], _resolved.CitationEtAl.AuthorSeparator));
+            _bibSeparator.Load(ReadSeparator(node["etAl"], "authorSeparatorZh", _resolved.EtAl.AuthorSeparatorZh), ReadSeparator(node["etAl"], "authorSeparatorEn", _resolved.EtAl.AuthorSeparatorEn), ReadSeparator(node["etAl"], "authorSeparator", _resolved.EtAl.AuthorSeparator));
+            _citeSeparator.Load(ReadSeparator(node["citation"]?["etAl"], "authorSeparatorZh", _resolved.CitationEtAl.AuthorSeparatorZh), ReadSeparator(node["citation"]?["etAl"], "authorSeparatorEn", _resolved.CitationEtAl.AuthorSeparatorEn), ReadSeparator(node["citation"]?["etAl"], "authorSeparator", _resolved.CitationEtAl.AuthorSeparator));
             Fill(_bibMin, _bibFirst, _bibZh, _bibEn, node["etAl"] as JsonObject, _resolved.EtAl.MinCount, _resolved.EtAl.UseFirst, _resolved.EtAl.Zh ?? "", _resolved.EtAl.En ?? "");
             Fill(_citeMin, _citeFirst, _citeZh, _citeEn, node["citation"]?["etAl"] as JsonObject, _resolved.CitationEtAl.MinCount, _resolved.CitationEtAl.UseFirst, _resolved.CitationEtAl.Zh ?? "", _resolved.CitationEtAl.En ?? "");
         }
@@ -189,9 +189,9 @@ public sealed class StyleEditorWindow : Window
             var node = JsonNode.Parse(_editor.Text) as JsonObject;
             if (node is null)
                 return;
-            node["etAl"] = RuleNode(_bibMin, _bibFirst, _bibZh, _bibEn, _bibSeparator.Value, node["etAl"] as JsonObject);
+            node["etAl"] = RuleNode(_bibMin, _bibFirst, _bibZh, _bibEn, _bibSeparator.ValueZh, _bibSeparator.ValueEn, node["etAl"] as JsonObject);
             var citation = node["citation"] as JsonObject ?? new JsonObject();
-            citation["etAl"] = RuleNode(_citeMin, _citeFirst, _citeZh, _citeEn, _citeSeparator.Value, citation["etAl"] as JsonObject);
+            citation["etAl"] = RuleNode(_citeMin, _citeFirst, _citeZh, _citeEn, _citeSeparator.ValueZh, _citeSeparator.ValueEn, citation["etAl"] as JsonObject);
             node["citation"] = citation;
             _syncing = true;
             _editor.Text = node.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
@@ -200,7 +200,8 @@ public sealed class StyleEditorWindow : Window
             previewRule["UseFirst"] = int.Parse(_bibFirst.Text);
             previewRule["Zh"] = _bibZh.Text;
             previewRule["En"] = _bibEn.Text;
-            previewRule["AuthorSeparator"] = _bibSeparator.Value;
+            previewRule["AuthorSeparatorZh"] = _bibSeparator.ValueZh;
+            previewRule["AuthorSeparatorEn"] = _bibSeparator.ValueEn;
             _templates.UpdateAuthors(previewRule.Deserialize<EtAlRule>()!);
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException)
@@ -221,8 +222,8 @@ public sealed class StyleEditorWindow : Window
         en.Text = rule?["en"]?.GetValue<string>() ?? defaultEn;
     }
 
-    private static string? ReadSeparator(JsonNode? node, string? fallback) =>
-        node is JsonObject rule && rule.TryGetPropertyValue("authorSeparator", out var value) ? value?.GetValue<string>() : fallback;
+    private static string? ReadSeparator(JsonNode? node, string key, string? fallback) =>
+        node is JsonObject rule && rule.TryGetPropertyValue(key, out var value) ? value?.GetValue<string>() : fallback;
 
     private static string ReadInt(JsonObject? rule, string name, int fallback) =>
         rule?[name]?.GetValue<int>().ToString() ?? fallback.ToString();
@@ -233,7 +234,7 @@ public sealed class StyleEditorWindow : Window
             throw new InvalidOperationException("作者省略规则：起始人数至少为 2，保留人数至少为 1 且小于起始人数。");
     }
 
-    private static JsonObject RuleNode(TextBox min, TextBox first, TextBox zh, TextBox en, string? separator, JsonObject? existing)
+    private static JsonObject RuleNode(TextBox min, TextBox first, TextBox zh, TextBox en, string? separatorZh, string? separatorEn, JsonObject? existing)
     {
         // Preserve advanced author formatting, including MDPI initials and separators.
         var rule = existing?.DeepClone().AsObject() ?? new JsonObject();
@@ -241,7 +242,8 @@ public sealed class StyleEditorWindow : Window
         rule["useFirst"] = int.TryParse(first.Text.Trim(), out var useFirst) ? useFirst : 1;
         rule["zh"] = zh.Text;
         rule["en"] = en.Text;
-        rule["authorSeparator"] = separator;
+        rule["authorSeparatorZh"] = separatorZh;
+        rule["authorSeparatorEn"] = separatorEn;
         return rule;
     }
 
