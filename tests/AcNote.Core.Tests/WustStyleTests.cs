@@ -6,6 +6,16 @@ namespace AcNote.Core.Tests;
 
 public class WustStyleTests
 {
+    [Fact]
+    public void OtherTypeDoesNotEmitPeriodAndCommaTogetherBeforeYear()
+    {
+        var item = Item("document", "西北太平洋历史台风风场重建模型参数试验", "孔莉莎\n张秀芝", "2022");
+        item.ContainerTitle = "应用气象学报";
+        Output("孔莉莎，张秀芝. 西北太平洋历史台风风场重建模型参数试验[Z]. 应用气象学报，2022.", item);
+        item.Language = "en"; item.Title = "A test"; item.ContainerTitle = "Example Journal";
+        Assert.Contains("Example Journal, 2022.", BibliographyFormatter.Format(item, Style).Text);
+    }
+
     private static ResolvedStyle Style => StyleCatalog.Load(Path.Combine(AppContext.BaseDirectory, "styles")).Get("wust-doctoral-science");
     private static ReferenceItem Item(string type, string title, string authors, string year = "") => new()
     { Type = type, Title = title, Authors = AuthorFormatter.ParseList(authors), Year = year, Language = "zh" };

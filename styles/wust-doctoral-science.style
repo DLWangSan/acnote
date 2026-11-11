@@ -1,7 +1,7 @@
 {
   "id": "wust-doctoral-science",
   "name": "武汉科技大学博士论文（理工类）",
-  "version": "1.0",
+  "version": "1.1",
   "layout": "numeric",
   "group": "university",
   "status": "source-reviewed",
@@ -520,8 +520,7 @@
         "textCaseEn": "sentence"
       },
       {
-        "field": "container-title",
-        "suffix": ". "
+        "field": "container-title"
       },
       {
         "field": "year",
